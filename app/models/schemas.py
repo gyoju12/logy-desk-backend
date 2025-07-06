@@ -29,14 +29,13 @@ class AgentUpdate(BaseModel):
 
 class Agent(AgentBase):
     """Complete agent schema including database fields."""
-    id: UUID = Field(default_factory=uuid4, description="Unique identifier for the agent")
+    id: str = Field(..., description="Unique identifier for the agent (format: agent_XXX)")
     created_at: datetime = Field(default_factory=datetime.utcnow, description="Creation timestamp")
     updated_at: datetime = Field(default_factory=datetime.utcnow, description="Last update timestamp")
 
     class Config:
         from_attributes = True
         json_encoders = {
-            UUID: str,
             datetime: lambda dt: dt.isoformat()
         }
 

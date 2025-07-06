@@ -24,11 +24,42 @@ class DummyDB:
         self.documents = []
         self.chat_sessions = {}
         self.next_agent_id = 1
+        self.next_chat_id = 1
+        self.next_doc_id = 1
 
     def generate_agent_id(self):
         agent_id = f"agent_{self.next_agent_id:03d}"
         self.next_agent_id += 1
         return agent_id
+        
+    def generate_chat_id(self):
+        chat_id = f"chat_{self.next_chat_id:03d}"
+        self.next_chat_id += 1
+        return chat_id
+        
+    def generate_document_id(self):
+        doc_id = f"doc_{self.next_doc_id:03d}"
+        self.next_doc_id += 1
+        return doc_id
+        
+    def add_document(self, doc):
+        """문서를 추가합니다."""
+        self.documents.append(doc)
+        return doc
+        
+    def get_document(self, doc_id: str):
+        """문서 ID로 문서를 조회합니다."""
+        for doc in self.documents:
+            if doc["id"] == doc_id:
+                return doc
+        raise HTTPException(status_code=404, detail="Document not found")
+        
+    def delete_document(self, doc_id: str):
+        """문서를 삭제합니다."""
+        for i, doc in enumerate(self.documents):
+            if doc["id"] == doc_id:
+                return self.documents.pop(i)
+        raise HTTPException(status_code=404, detail="Document not found")
 
 # Initialize dummy database
 db = DummyDB()
@@ -196,36 +227,66 @@ async def delete_agent(agent_id: str):
     # 204 No Content 반환 (본문 없음)
 
 # Documents endpoints
-@documents_router.post("/upload", response_model=dict)
-async def upload_document(file: UploadFile = File(...)) -> dict:
-    """Upload a document to the knowledge base"""
-    document_id = f"doc_{uuid4().hex[:8]}"
-    db_documents.append({
-        "id": document_id,
+@documents_router.post("/upload", response_model=Document, status_code=status.HTTP_201_CREATED)
+async def upload_document(file: UploadFile = File(...), title: str = None):
+    """
+    문서를 업로드합니다.
+    
+    - **file**: 업로드할 파일
+    - **title**: 문서 제목 (생략 시 파일명 사용)
+    
+    Returns:
+        Document: 업로드된 문서 정보
+    """
+    if not title:
+        title = file.filename or "제목 없음"
+    
+    # 파일 내용 읽기 (실제 애플리케이션에서는 디스크나 클라우드 스토리지에 저장)
+    content = await file.read()
+    
+    # 문서 레코드 생성
+    doc = {
+        "id": db.generate_document_id(),
+        "title": title,
         "filename": file.filename,
+        "content_type": file.content_type or "application/octet-stream",
+        "size": len(content),
         "uploaded_at": datetime.utcnow()
-    })
-    return {
-        "message": "파일이 성공적으로 업로드 및 처리되었습니다.",
-        "filename": file.filename,
-        "document_id": document_id
     }
+    
+    db.add_document(doc)
+    return doc
 
-@documents_router.get("", response_model=DocumentListResponse)
-async def list_documents() -> DocumentListResponse:
-    """List all uploaded documents"""
-    return DocumentListResponse(
-        documents=[Document(**doc) for doc in db_documents]
-    )
+@documents_router.get("", response_model=List[Document])
+async def list_documents():
+    """
+    업로드된 모든 문서 목록을 조회합니다.
+    
+    Returns:
+        List[Document]: 문서 목록
+    """
+    return db.documents
 
-@documents_router.delete("/{document_id}")
-async def delete_document(document_id: str) -> dict:
-    """Delete a document from the knowledge base"""
-    for i, doc in enumerate(db_documents):
-        if doc["id"] == document_id:
-            db_documents.pop(i)
-            return {"message": f"문서(ID: {document_id})가 성공적으로 삭제되었습니다."}
-    raise HTTPException(status_code=404, detail="Document not found")
+@documents_router.get("/{doc_id}", response_model=Document)
+async def get_document(doc_id: str):
+    """
+    특정 문서의 상세 정보를 조회합니다.
+    
+    - **doc_id**: 조회할 문서의 ID
+    
+    Returns:
+        Document: 문서 상세 정보
+    """
+    return db.get_document(doc_id)
+
+@documents_router.delete("/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_document(doc_id: str):
+    """
+    문서를 삭제합니다.
+    
+    - **doc_id**: 삭제할 문서의 ID
+    """
+    db.delete_document(doc_id)
 
 # Chat Sessions endpoints
 @chat_sessions_router.post("", response_model=ChatSession, status_code=status.HTTP_201_CREATED)
@@ -238,11 +299,11 @@ async def create_chat_session(title: str = "새 채팅") -> ChatSession:
     Returns:
         ChatSession: 생성된 채팅 세션 정보
     """
-    session_id = str(uuid4())
+    session_id = db.generate_chat_id()
     now = datetime.utcnow()
     
     # 새 채팅 세션 생성
-    db_chat_sessions[session_id] = {
+    db.chat_sessions[session_id] = {
         "title": title,
         "created_at": now,
         "messages": []
@@ -264,16 +325,16 @@ async def list_chat_sessions() -> ChatSessionListResponse:
     """
     sessions = [
         ChatSession(id=session_id, title=session["title"], created_at=session["created_at"])
-        for session_id, session in db_chat_sessions.items()
+        for session_id, session in db.chat_sessions.items()
     ]
     return ChatSessionListResponse(sessions=sessions)
 
 @chat_sessions_router.get("/{session_id}", response_model=ChatSessionDetail)
 async def get_chat_session(session_id: str) -> ChatSessionDetail:
     """Get a specific chat session with all messages"""
-    if session_id not in db_chat_sessions:
+    if session_id not in db.chat_sessions:
         raise HTTPException(status_code=404, detail="Chat session not found")
-    session = db_chat_sessions[session_id]
+    session = db.chat_sessions[session_id]
     return ChatSessionDetail(
         id=session_id,
         title=session["title"],
@@ -284,9 +345,9 @@ async def get_chat_session(session_id: str) -> ChatSessionDetail:
 @chat_sessions_router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_chat_session(session_id: str):
     """Delete a chat session"""
-    if session_id not in db_chat_sessions:
+    if session_id not in db.chat_sessions:
         raise HTTPException(status_code=404, detail="Chat session not found")
-    db_chat_sessions.pop(session_id)
+    db.chat_sessions.pop(session_id)
 
 # Chat endpoint
 @chat_router.post("", response_model=ChatResponse)
