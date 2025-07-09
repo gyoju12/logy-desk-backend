@@ -9,7 +9,7 @@ import os
 from contextlib import asynccontextmanager
 
 # Import API routers
-from app.api.endpoints import router as api_router
+from app.api.router import api_router
 
 # API version
 API_PREFIX = "/api/v1"
@@ -54,8 +54,8 @@ async def health_check():
     """Health check endpoint for monitoring"""
     return {"status": "healthy"}
 
-# Include API routers
-app.include_router(api_router)
+# Include API routers with version prefix
+app.include_router(api_router, prefix=API_PREFIX)
 app.include_router(root_router)
 
 # Redirect /doc to /docs
@@ -96,4 +96,4 @@ app.openapi = custom_openapi
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=9000, reload=True)

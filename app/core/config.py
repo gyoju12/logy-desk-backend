@@ -1,0 +1,66 @@
+import os
+from typing import Optional, List, Dict, Any
+from pydantic import Field, PostgresDsn, field_validator, ConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+class Settings(BaseSettings):
+    # API Configuration
+    API_V1_STR: str = "/api/v1"
+    PROJECT_NAME: str = "Logy-Desk"
+    
+    # Environment
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
+    DEBUG: bool = os.getenv("DEBUG", "true").lower() == "true"
+    TESTING: bool = os.getenv("TESTING", "false").lower() == "true"
+    
+    # Database Configuration
+    POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")
+    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "logy")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "logy-password")
+    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "logy_desk_db")
+    POSTGRES_PORT: str = os.getenv("POSTGRES_PORT", "5432")
+    DATABASE_URI: Optional[PostgresDsn] = None
+
+    # ChromaDB Configuration
+    CHROMA_DB_PATH: str = os.getenv("CHROMA_DB_PATH", "./chroma_db")
+    
+    # OpenAI Configuration
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4")
+    
+    # Security
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-here")
+    ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
+    
+    # CORS
+    BACKEND_CORS_ORIGINS: List[str] = ["*"]
+    
+    @field_validator("DATABASE_URI", mode='before')
+    @classmethod
+    def assemble_db_connection(cls, v: Optional[str], info) -> str:
+        if isinstance(v, str):
+            return v
+        
+        values = info.data
+        return (
+            f"postgresql+asyncpg://"
+            f"{values.get('POSTGRES_USER')}:"
+            f"{values.get('POSTGRES_PASSWORD')}@"
+            f"{values.get('POSTGRES_SERVER')}:"
+            f"{values.get('POSTGRES_PORT')}/"
+            f"{values.get('POSTGRES_DB')}"
+        )
+    
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding='utf-8',
+        extra='ignore',  # Ignore extra fields in .env
+        case_sensitive=False,
+        env_nested_delimiter='__',
+        validate_default=True,
+        protected_namespaces=()
+    )
+
+# Initialize settings
+settings: 'Settings' = Settings()  # type: ignore
