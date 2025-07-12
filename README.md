@@ -1,31 +1,54 @@
 # Logy Desk Backend
 
-Python/FastAPI 기반의 멀티 에이전트 채팅 백엔드 애플리케이션
+<div align="center">
+  <img src="https://img.shields.io/badge/Python-3.11+-blue.svg" alt="Python 3.11+" />
+  <img src="https://img.shields.io/badge/FastAPI-0.104.1-009688.svg?logo=fastapi" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/PostgreSQL-15-4169E1.svg?logo=postgresql" alt="PostgreSQL" />
+  <img src="https://img.shields.io/badge/Redis-7.0-DC382D.svg?logo=redis" alt="Redis" />
+  <img src="https://img.shields.io/badge/Docker-24.0-2496ED.svg?logo=docker" alt="Docker" />
+  <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT" />
+</div>
 
-## 기능
+## 개요
 
-- 에이전트 관리 (생성, 조회, 수정, 삭제)
-- 문서 업로드 및 관리
-- 채팅 세션 관리
-- 멀티 에이전트 기반 채팅
+Logy Desk은 FastAPI 기반의 고성능 멀티 에이전트 채팅 백엔드 애플리케이션입니다. 이 프로젝트는 다양한 AI 에이전트를 활용한 대화형 인터페이스를 제공하며, RAG(Retrieval-Augmented Generation) 기술을 통한 지식 기반 응답 생성을 지원합니다.
+- 💬 채팅 세션 관리
+- 🧠 멀티 에이전트 기반 지식 기반 채팅
+- 🔍 벡터 검색 기반 문서 검색
 
-## 개발 환경 설정
+## 🛠️ 기술 스택
+
+- **프레임워크**: FastAPI
+- **데이터베이스**: PostgreSQL + pgvector
+- **캐싱**: Redis (세션 및 캐시)
+- **AI/ML**: LangChain, OpenAI/OpenRouter 통합
+- **검색**: ChromaDB (벡터 저장소)
+- **배포**: Docker, Uvicorn
+
+## 🚀 시작하기
 
 ### 필수 구성 요소
 
 - Python 3.9+
-- PostgreSQL
-- pip (Python 패키지 관리자)
+- PostgreSQL 14+
+- Redis (선택사항, 캐싱용)
+- OpenRouter API 키 (LLM 통합용)
 
-### 의존성 설치
+### 개발 환경 설정
+
+1. 저장소 클론 및 가상환경 설정:
 
 ```bash
-# 프로젝트 클론
-# 의존성 설치
-pip install -r requirements.txt
+# 저장소 클론
+git clone https://github.com/your-username/logy-desk-backend.git
+cd logy-desk-backend
 
-# 개발용 의존성 설치 (선택사항)
-pip install -r requirements-test.txt
+# 가상환경 생성 및 활성화 (macOS/Linux)
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+# 의존성 설치
+pip install -e ".[dev]"  # 개발 의존성 포함 설치
 ```
 
 ### 환경 변수 설정
@@ -33,10 +56,21 @@ pip install -r requirements-test.txt
 `.env` 파일을 생성하고 다음 변수들을 설정하세요:
 
 ```env
-DATABASE_URL=postgresql://username:password@localhost:5432/logy_desk_db
+# 데이터베이스
+DATABASE_URL=postgresql+asyncpg://username:password@localhost:5432/logy_desk_db
+
+# 인증
 SECRET_KEY=your-secret-key-here
 ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
+ACCESS_TOKEN_EXPIRE_MINUTES=1440  # 24시간
+
+# OpenRouter 설정
+OPENROUTER_API_KEY=your-openrouter-api-key
+OPENROUTER_MODEL=google/gemma-3-27b-it:free
+
+# 기타
+LOG_LEVEL=INFO
+ENVIRONMENT=development
 ```
 
 ### 데이터베이스 설정
@@ -44,10 +78,83 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 1. PostgreSQL 데이터베이스 생성:
 ```bash
 createdb logy_desk_db
+
+# pgvector 확장 활성화 (PostgreSQL이 실행 중인 경우)
+psql -d logy_desk_db -c "CREATE EXTENSION IF NOT EXISTS vector;"
 ```
 
 2. 마이그레이션 실행:
 ```bash
+alembic upgrade head
+```
+
+### 개발 서버 실행
+
+```bash
+uvicorn app.main:app --reload
+```
+
+API 문서는 다음에서 확인할 수 있습니다:
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
+
+## 🧪 테스트 실행
+
+```bash
+# 모든 테스트 실행
+pytest
+
+# 코드 커버리지 포함 테스트
+pytest --cov=app tests/
+
+# 특정 테스트 모듈 실행
+pytest tests/test_api.py -v
+```
+
+## 🧹 코드 품질 관리
+
+```bash
+# 코드 포맷팅
+black .
+
+# import 정렬
+isort .
+
+# 정적 타입 체크
+mypy .
+
+# 코드 린팅
+flake8
+```
+
+## 📦 프로덕션 배포
+
+Docker를 사용한 배포 예시:
+
+```bash
+# 도커 이미지 빌드
+docker build -t logy-desk-backend .
+
+# 도커 컨테이너 실행
+docker run -d --name logy-backend \
+  -p 8000:8000 \
+  --env-file .env \
+  logy-desk-backend
+```
+
+## 🤝 기여하기
+
+기여를 환영합니다! 이슈를 열거나 풀 리퀘스트를 보내주세요.
+
+1. 이슈 생성
+2. 기능 브랜치 생성 (`git checkout -b feature/amazing-feature`)
+3. 변경사항 커밋 (`git commit -m 'Add some amazing feature'`)
+4. 브랜치에 푸시 (`git push origin feature/amazing-feature`)
+5. 풀 리퀘스트 열기
+
+## 📄 라이센스
+
+이 프로젝트는 MIT 라이센스 하에 배포됩니다. 자세한 내용은 `LICENSE` 파일을 참조하세요.
 alembic upgrade head
 ```
 

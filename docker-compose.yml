@@ -1,8 +1,10 @@
 version: '3.8'
 
 services:
+  # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
+    container_name: logy-desk-postgres
     environment:
       POSTGRES_USER: logy
       POSTGRES_PASSWORD: logy-password
@@ -11,22 +13,102 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init-db/:/docker-entrypoint-initdb.d/
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U logy -d logy_desk_db"]
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
+  # Redis for caching and async tasks
+  redis:
+    image: redis:7-alpine
+    container_name: logy-desk-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  # PGAdmin for database management
   pgadmin:
-    image: dpage/pgadmin4
+    image: dpage/pgadmin4:7.4
+    container_name: logy-desk-pgadmin
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_EMAIL: admin@logydesk.com
       PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
     ports:
       - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
     depends_on:
       postgres:
         condition: service_healthy
+    restart: unless-stopped
+
+  # FastAPI Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: logy-desk-app
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://logy:logy-password@postgres:5432/logy_desk_db
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  # Celery Worker
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: logy-desk-worker
+    volumes:
+      - .:/app
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://logy:logy-password@postgres:5432/logy_desk_db
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+    depends_on:
+      - postgres
+      - redis
+    command: celery -A app.worker.celery worker --loglevel=info
+    restart: unless-stopped
+
+  # Celery Beat
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: logy-desk-beat
+    volumes:
+      - .:/app
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://logy:logy-password@postgres:5432/logy_desk_db
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+    depends_on:
+      - postgres
+      - redis
+    command: celery -A app.worker.celery beat --loglevel=info
+    restart: unless-stopped
 
 volumes:
   postgres_data:
+  redis_data:
+  pgadmin_data:

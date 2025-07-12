@@ -2,6 +2,8 @@
 __pycache__/
 *.py[codz]
 *$py.class
+*.pyo
+*.pyd
 
 # C extensions
 *.so
@@ -26,9 +28,25 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
 # PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
 
@@ -48,6 +66,144 @@ coverage.xml
 *.cover
 *.py.cover
 .hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Local development
+*.log
+logs/
+
+# Database
+*.sqlite3
+*.db
+
+# ChromaDB
+chroma-data/
+
+# Mypy
+.mypy_cache/
+
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Project specific
+.venv/
+venv2/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+build/
+dist/
+.eggs/
+*.egg
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+.env
+.env.*
+!.env.example
+htmlcov/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py.cover
+.hypothesis/
+.pytest_cache/
+.mypy_cache/
+*.sqlite3
+*.db
+chroma-data/
+logs/
+*.log
+
+# Local development
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Project specific
+*.bak
+*.pyc
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+.eggs/
+build/
+dist/
+*.so
+*.pyd
+*.dll
+*.pyc
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+.eggs/
+build/
+dist/
+*.so
+*.pyd
+*.dll
+
+# Environment files (except example)
+.env
+!.env.example
+
+# Logs
+logs/
+*.log
+
+# Database
+*.sqlite3
+*.db
+
+# ChromaDB
+chroma-data/
+
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
 .pytest_cache/
 cover/
 
