@@ -10,8 +10,7 @@ from app.models.db_models import (
 
 __all__ = [
     'User',
-    'Agent',
-    'Document',
+    'Agent',    'Document',
     'DocumentChunk',
     'ChatSession',
     'ChatMessage',

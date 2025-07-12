@@ -4,6 +4,7 @@ from .endpoints.documents import router as documents_router
 from .endpoints.chat_sessions import router as chat_sessions_router
 from .endpoints.chat import router as chat_router
 from .endpoints.auth import router as auth_router
+from .endpoints.agents import router as agents_router
 
 # Create main API router
 api_router = APIRouter()

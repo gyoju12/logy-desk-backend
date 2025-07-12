@@ -6,7 +6,7 @@ from datetime import datetime
 from app.models import schemas
 from app.crud import crud_chat
 from app.db.database import get_db
-from app.services.agent_service import run_main_agent
+from app.services.llm_client import get_llm_client
 from app.core.dev_utils import get_temp_user
 
 router = APIRouter()
@@ -53,17 +53,20 @@ async def create_chat_message(
         
         # AI 응답 생성
         try:
-            # session_id를 포함하여 run_main_agent 호출
-            ai_response = await run_main_agent(
-                user_message=message.content,
-                session_id=session_id  # session_id 전달 추가
-            )
+            # LLM 클라이언트 초기화
+            llm_client = await get_llm_client()
             
-            # 응답에서 메시지 추출 (에러 메시지 처리 포함)
-            response_content = (
-                ai_response.get('message', '') 
-                if isinstance(ai_response, dict) 
-                else str(ai_response)
+            # 이전 대화 맥락을 포함한 메시지 준비
+            chat_messages = [
+                {"role": m.role, "content": m.content}
+                for m in messages
+            ]
+            
+            # LLM을 통해 응답 생성
+            response_content = await llm_client.generate_chat_response(
+                messages=chat_messages,
+                temperature=0.7,
+                max_tokens=1000
             )
             
             # AI 응답 저장 (비동기 호출)

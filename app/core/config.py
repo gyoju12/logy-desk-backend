@@ -24,9 +24,17 @@ class Settings(BaseSettings):
     # ChromaDB Configuration
     CHROMA_DB_PATH: str = os.getenv("CHROMA_DB_PATH", "./chroma_db")
     
-    # OpenAI Configuration
+    # LLM Provider Configuration
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openrouter")  # 'openai' or 'openrouter'
+    
+    # OpenAI Configuration (used as fallback)
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4")
+    
+    # OpenRouter Configuration
+    OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
+    OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+    OPENROUTER_MODEL: str = os.getenv("OPENROUTER_MODEL", "openai/gpt-4-turbo-preview")
     
     # Security
     SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-here")

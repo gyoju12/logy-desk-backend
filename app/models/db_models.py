@@ -23,7 +23,6 @@ class User(Base):
     is_superuser = Column(Boolean(), default=False)
     
     # Relationships
-    agents = relationship("Agent", back_populates="user")
     chat_sessions = relationship("ChatSession", back_populates="user")
     
     def __init__(
@@ -42,47 +41,6 @@ class User(Base):
     
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email={self.email})>"
-
-
-class Agent(Base):
-    """Agent model for storing agent configurations."""
-    __tablename__ = 'agents'
-    
-    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    
-    user_id = Column(PG_UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
-    name = Column(String(100), nullable=False)
-    agent_type = Column(String(10), nullable=False)  # 'main' or 'sub'
-    model = Column(String(50), nullable=False)
-    temperature = Column(Float, nullable=False, default=0.5)
-    system_prompt = Column(Text, nullable=False)
-    
-    # Relationships
-    user = relationship("User", back_populates="agents")
-    chat_sessions = relationship("ChatSession", back_populates="agent")
-    
-    def __init__(
-        self,
-        user_id: UUID,
-        name: str,
-        agent_type: str,
-        model: str,
-        system_prompt: str,
-        temperature: float = 0.5,
-        **kwargs
-    ):
-        super().__init__(**kwargs)
-        self.user_id = user_id
-        self.name = name
-        self.agent_type = agent_type
-        self.model = model
-        self.temperature = temperature
-        self.system_prompt = system_prompt
-    
-    def __repr__(self) -> str:
-        return f"<Agent(id={self.id}, name={self.name}, type={self.agent_type})>"
 
 
 class Document(Base):
@@ -138,14 +96,24 @@ class ChatSession(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
     user_id = Column(PG_UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
-    agent_id = Column(PG_UUID(as_uuid=True), ForeignKey('agents.id'), nullable=True)
     title = Column(String(200), nullable=True)
     is_active = Column(Boolean, default=True)
     
     # Relationships
     user = relationship("User", back_populates="chat_sessions")
-    agent = relationship("Agent", back_populates="chat_sessions")
     messages = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan")
+    
+    def __init__(
+        self,
+        user_id: UUID,
+        title: Optional[str] = None,
+        is_active: bool = True,
+        **kwargs
+    ):
+        super().__init__(**kwargs)
+        self.user_id = user_id
+        self.title = title
+        self.is_active = is_active
     
     def __repr__(self) -> str:
         return f"<ChatSession(id={self.id}, user_id={self.user_id}, title={self.title})>"
