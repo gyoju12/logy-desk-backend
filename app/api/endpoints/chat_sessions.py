@@ -6,7 +6,9 @@ from datetime import datetime
 from app.models import schemas
 from app.crud import crud_chat
 from app.db.database import get_db
-from app.core.dev_utils import get_temp_user
+
+# Default user ID for MVP
+DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000000"
 
 router = APIRouter()
 
@@ -20,9 +22,9 @@ async def create_chat_session(
     
     - **title**: 채팅 세션 제목 (기본값: '새 채팅')
     """
-    # Use temporary user ID for development
+    # Use default user ID for MVP
     chat_session_data = chat_session.dict()
-    chat_session_data["user_id"] = get_temp_user()["id"]
+    chat_session_data["user_id"] = DEFAULT_USER_ID
     
     db_chat_session = await crud_chat.chat_session.create(db, obj_in=chat_session_data)
     await db.commit()
@@ -41,7 +43,7 @@ async def list_chat_sessions(
     - **skip**: 건너뛸 레코드 수 (페이징용)
     - **limit**: 반환할 최대 레코드 수 (페이징용)
     """
-    # In a real app, you would filter by current user
+    # For MVP, return all chat sessions
     chat_sessions = await crud_chat.chat_session.get_multi(db, skip=skip, limit=limit)
     return chat_sessions
 

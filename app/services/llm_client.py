@@ -1,5 +1,7 @@
 """LLM client module for handling interactions with different LLM providers."""
 import os
+
+DEFAULT_MODEL = "google/gemma-3-27b-it:free"
 import logging
 from typing import Dict, Any, Optional, List, Union
 import httpx
@@ -7,8 +9,20 @@ from openai import AsyncOpenAI
 
 from app.core.config import settings
 
-# 로거 설정
+# Configure root logger if not already configured
+if not logging.root.handlers:
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler('app.log')
+        ]
+    )
+
+# Get logger for this module
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)  # Ensure debug level is set for this logger
 
 class LLMClient:
     """Client for interacting with different LLM providers."""
@@ -17,39 +31,68 @@ class LLMClient:
         self.provider = settings.LLM_PROVIDER.lower()
         self._client = None
         self._http_client = None
+        self._current_model = settings.OPENROUTER_MODEL
+        self._fallback_models = [
+            "google/gemma-3-27b-it:free", 
+            "google/gemma-3-27b-it:free", 
+            "google/gemma-3-27b-it:free", 
+            "google/gemma-3-27b-it:free", 
+            "google/gemma-3-27b-it:free"
+        ]
         
     async def initialize(self):
         """Initialize the LLM client based on the configured provider."""
+        logger.debug("Initializing LLM client...")
+        
         if self._client is not None:
+            logger.debug("LLM client already initialized, skipping initialization")
             return
             
-        if self.provider == "openrouter":
-            if not settings.OPENROUTER_API_KEY:
-                raise ValueError("OpenRouter API key is required when using OpenRouter provider")
+        try:
+            if self.provider == "openrouter":
+                logger.info(f"Initializing OpenRouter client with model: {settings.OPENROUTER_MODEL}")
                 
-            # Create custom HTTP client with required headers
-            self._http_client = httpx.AsyncClient(
-                headers={
-                    "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
-                    "HTTP-Referer": "https://logy-desk.app",  # Your app's URL
-                    "X-Title": "Logy-Desk",  # Your app name
-                    "Content-Type": "application/json"
-                }
-            )
-            
-            # Initialize OpenAI client with the custom HTTP client
-            self._client = AsyncOpenAI(
-                base_url=settings.OPENROUTER_BASE_URL,
-                api_key=settings.OPENROUTER_API_KEY,
-                http_client=self._http_client
-            )
-            print(f"[DEBUG] Initialized OpenRouter client with model: {settings.OPENROUTER_MODEL}")
-        else:  # Default to OpenAI
-            if not settings.OPENAI_API_KEY:
-                raise ValueError("OpenAI API key is required when using OpenAI provider")
+                if not settings.OPENROUTER_API_KEY:
+                    error_msg = "OpenRouter API key is required when using OpenRouter provider"
+                    logger.error(error_msg)
+                    raise ValueError(error_msg)
                 
-            self._client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-            print(f"[DEBUG] Initialized OpenAI client with model: {settings.OPENAI_MODEL}")
+                logger.debug("Creating custom HTTP client for OpenRouter")
+                # Create custom HTTP client with required headers
+                self._http_client = httpx.AsyncClient(
+                    headers={
+                        "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+                        "HTTP-Referer": "https://logy-desk.app",  # Your app's URL
+                        "X-Title": "Logy-Desk",  # Your app name
+                        "Content-Type": "application/json"
+                    },
+                    timeout=30.0  # Add timeout to prevent hanging
+                )
+                
+                # Initialize OpenAI client with the custom HTTP client
+                logger.debug("Initializing AsyncOpenAI client for OpenRouter")
+                self._client = AsyncOpenAI(
+                    base_url=settings.OPENROUTER_BASE_URL,
+                    api_key=settings.OPENROUTER_API_KEY,
+                    http_client=self._http_client
+                )
+                logger.info(f"Successfully initialized OpenRouter client with model: {settings.OPENROUTER_MODEL}")
+                
+            else:  # Default to OpenAI
+                logger.info(f"Initializing OpenAI client with model: {settings.OPENAI_MODEL}")
+                
+                if not settings.OPENAI_API_KEY:
+                    error_msg = "OpenAI API key is required when using OpenAI provider"
+                    logger.error(error_msg)
+                    raise ValueError(error_msg)
+                
+                logger.debug("Initializing standard OpenAI client")
+                self._client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+                logger.info(f"Successfully initialized OpenAI client with model: {settings.OPENAI_MODEL}")
+                
+        except Exception as e:
+            logger.error(f"Error initializing LLM client: {str(e)}", exc_info=True)
+            raise
     
     def get_model_name(self) -> str:
         """Get the configured model name for the current provider."""
@@ -74,17 +117,24 @@ class LLMClient:
         Returns:
             생성된 응답 텍스트
         """
+        logger.debug("Starting to generate chat response")
+        
+        # Initialize client if needed
         if self._client is None:
+            logger.debug("LLM client not initialized, initializing now...")
             await self.initialize()
-            
+        
         try:
-            # 요청 파라미터 준비
+            # Validate and prepare request parameters
             temperature = min(max(temperature, 0.0), 2.0)  # 0.0 ~ 2.0 범위로 제한
             max_tokens = min(max_tokens, 2000)  # 최대 2000 토큰으로 제한
             
             logger.info(f"Generating chat response with {self.provider} model: {self.get_model_name()}")
+            logger.debug(f"Request parameters - temperature: {temperature}, max_tokens: {max_tokens}")
+            logger.debug(f"Messages being sent to LLM: {messages}")
             
-            # API 호출
+            # Make the API call
+            logger.debug("Sending request to LLM API...")
             response = await self._client.chat.completions.create(
                 model=self.get_model_name(),
                 messages=messages,
@@ -92,15 +142,29 @@ class LLMClient:
                 max_tokens=max_tokens
             )
             
-            # 응답에서 텍스트 추출
+            # Extract and log the response
+            if not response.choices or not response.choices[0].message.content:
+                error_msg = "Empty or invalid response from LLM API"
+                logger.error(f"{error_msg}. Response: {response}")
+                raise ValueError(error_msg)
+            
             response_text = response.choices[0].message.content
-            logger.debug(f"LLM response: {response_text[:200]}..." if len(response_text) > 200 else f"LLM response: {response_text}")
+            
+            # Log a portion of the response for debugging
+            response_preview = (
+                response_text[:200] + "..." 
+                if len(response_text) > 200 
+                else response_text
+            )
+            logger.debug(f"Received LLM response: {response_preview}")
+            logger.info("Successfully generated chat response")
             
             return response_text
             
         except Exception as e:
-            error_msg = f"채팅 응답 생성 중 오류 발생: {str(e)}"
+            error_msg = f"Error generating chat response: {str(e)}"
             logger.error(error_msg, exc_info=True)
+            raise Exception(f"Failed to generate chat response: {str(e)}") from e
             return f"죄송합니다. 응답을 생성하는 중 오류가 발생했습니다: {str(e)}"
 
     async def close(self):

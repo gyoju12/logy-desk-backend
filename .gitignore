@@ -211,10 +211,10 @@ __marimo__/
 .idea/
 
 # AI assistant
-API.md
-backEnd.md
-db.md
-system_prompt.md
+# API.md
+# backEnd.md
+# db.md
+# system_prompt.md
 
 # 업로드 파일
 uploads/

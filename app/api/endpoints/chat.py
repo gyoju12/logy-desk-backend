@@ -7,7 +7,9 @@ from app.models import schemas
 from app.crud import crud_chat
 from app.db.database import get_db
 from app.services.llm_client import get_llm_client
-from app.core.dev_utils import get_temp_user
+
+# Default user ID for MVP
+DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000000"
 
 router = APIRouter()
 
@@ -27,11 +29,10 @@ async def create_chat_message(
     # 채팅 세션이 존재하는지 확인
     db_chat_session = crud_chat.chat_session.get(db, id=session_id)
     if not db_chat_session:
-        # In development, create a new session if it doesn't exist
-        temp_user = get_temp_user()
+        # For MVP, create a new session with default user if it doesn't exist
         db_chat_session = crud_chat.chat_session.create(db, obj_in={
             "id": session_id,
-            "user_id": temp_user["id"],
+            "user_id": DEFAULT_USER_ID,
             "title": f"New Chat {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
         })
     

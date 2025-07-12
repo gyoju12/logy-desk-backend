@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
+from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import schemas
 from app.crud import crud_agent
-from app.db.database import get_db
-from app.core.dev_utils import get_temp_user
+from app.db.session import get_db
 
 router = APIRouter()
 
@@ -20,9 +20,9 @@ async def create_agent(agent: schemas.AgentCreate, db: AsyncSession = Depends(ge
     - **temperature**: 창의성 (0-10, 기본값: 7)
     - **system_prompt**: 시스템 프롬프트
     """
-    # Use temporary user ID for development
+    # For MVP, use a default user ID
     agent_data = agent.dict()
-    agent_data["user_id"] = get_temp_user()["id"]
+    agent_data["user_id"] = "00000000-0000-0000-0000-000000000000"  # Default user ID
     
     db_agent = await crud_agent.agent.get_by_name(db, name=agent.name)
     if db_agent:
@@ -37,7 +37,7 @@ async def list_agents(skip: int = 0, limit: int = 100, db: AsyncSession = Depend
     - **skip**: 건너뛸 레코드 수 (페이징용)
     - **limit**: 반환할 최대 레코드 수 (페이징용)
     """
-    # In a real app, you would filter by current user
+    # For MVP, return all agents without user filtering
     return await crud_agent.agent.get_multi(db, skip=skip, limit=limit)
 
 @router.get("/{agent_id}", response_model=schemas.Agent)

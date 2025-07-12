@@ -1,10 +1,10 @@
 from datetime import datetime
 from typing import List, Literal, Optional, Dict, Any, Union
-from pydantic import BaseModel, Field, field_serializer, model_serializer
+from pydantic import BaseModel, Field, field_serializer, model_serializer, field_validator
 from uuid import UUID, uuid4
 
 # Common types
-AgentType = Literal["main", "sub"]
+AgentType = Literal["MAIN", "SUB"]
 MessageRole = Literal["system", "user", "assistant"]
 
 # Base schemas
@@ -32,10 +32,36 @@ class Agent(AgentBase):
     id: UUID = Field(..., description="Unique identifier for the agent")
     created_at: datetime = Field(default_factory=datetime.utcnow, description="Creation timestamp")
     updated_at: datetime = Field(default_factory=datetime.utcnow, description="Last update timestamp")
+    
+    # Override agent_type to use Any to avoid validation issues
+    agent_type: Any = Field(..., description="Type of agent (MAIN or SUB)")
 
     @field_serializer('id')
     def serialize_id(self, id: UUID, _info) -> str:
         return str(id)
+        
+    @field_serializer('agent_type')
+    def serialize_agent_type(self, agent_type: Any, _info) -> str:
+        # Convert enum to string value
+        if hasattr(agent_type, 'value'):
+            return agent_type.value
+        # Ensure string is uppercase for consistency
+        if isinstance(agent_type, str):
+            return agent_type.upper()
+        return str(agent_type)
+        
+    @field_validator('agent_type', mode='before')
+    def validate_agent_type(cls, v):
+        # Convert string to uppercase for consistency
+        if isinstance(v, str):
+            v = v.upper()
+        # Convert enum to its value
+        if hasattr(v, 'value'):
+            v = v.value
+        # Ensure the value is one of the allowed values
+        if v not in ["MAIN", "SUB"]:
+            raise ValueError("agent_type must be either 'MAIN' or 'SUB'")
+        return v
 
     class Config:
         from_attributes = True

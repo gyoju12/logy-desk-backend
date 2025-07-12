@@ -12,7 +12,8 @@ from app.schemas import Document as DocumentSchema
 from app.models.db_models import User, Document
 from app.crud import crud_document
 from app.db.session import get_db
-from app.core.dev_utils import get_temp_user
+# Default user ID for MVP
+DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000000"
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -44,9 +45,11 @@ async def upload_document(
     
     - **file**: The file to upload (required)
     """
-    # Use temporary user for development
-    temp_user = get_temp_user()
-    logger.info(f"Starting document upload for temporary user {temp_user['id']}")
+    # For MVP, we'll just use the default user ID without checking
+    # In a production app, we would verify the user exists
+    user_id = DEFAULT_USER_ID
+    
+    logger.info(f"Starting document upload for user {user_id}")
     
     if not file:
         logger.error("No file provided in the request")
@@ -107,7 +110,7 @@ async def upload_document(
         
         # Create document record in database
         document_data = {
-            "user_id": temp_user["id"],
+            "user_id": user_id,
             "file_name": file.filename,
             "file_path": str(file_path),
             "file_size": file_size,

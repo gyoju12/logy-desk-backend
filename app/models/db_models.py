@@ -1,13 +1,71 @@
 from datetime import datetime
+from enum import Enum
 from typing import Any, Dict, List, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Text, DateTime, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
+from pydantic import BaseModel, Field
+from sqlalchemy import Column, DateTime, Enum as SQLEnum, ForeignKey, Integer, String, Text, Boolean, Float
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
+from sqlalchemy import types
+from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from uuid import uuid4
 
 from app.db.base import Base
+
+
+class AgentType(str, Enum):
+    """Enum for agent types."""
+    MAIN = "MAIN"
+    SUB = "SUB"
+
+
+class AgentTypeDB(types.TypeDecorator):
+    """Custom type to handle case-insensitive enum values.
+    
+    Maps between Python's AgentType enum and database's lowercase values.
+    """
+    impl = postgresql.ENUM('main', 'sub', name='agenttype')
+    cache_ok = True
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._enum_type = AgentType
+
+    def process_bind_param(self, value: Any, dialect) -> str:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return value.lower()
+        return value.value.lower()
+
+    def process_result_value(self, value: str, dialect) -> AgentType:
+        if value is None:
+            return None
+        return self._enum_type(value.upper())
+
+class Agent(Base):
+    """Agent model for AI agents."""
+    __tablename__ = 'agents'
+    
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    name = Column(String(100), nullable=False)
+    agent_type = Column(AgentTypeDB, nullable=False, default=AgentType.SUB)
+    model = Column(String(50), nullable=False)
+    temperature = Column(Float, default=0.7)
+    system_prompt = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True)
+    
+    # Relationships
+    user_id = Column(PG_UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
+    user = relationship("User", back_populates="agents")
+    
+    def __repr__(self):
+        return f"<Agent(id={self.id}, name='{self.name}', type='{self.agent_type}')>"
+
 
 class User(Base):
     """User model for storing user accounts and authentication data."""
@@ -18,6 +76,9 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
     email = Column(String(255), unique=True, nullable=False, index=True)
+    
+    # Relationships
+    agents = relationship("Agent", back_populates="user")
     hashed_password = Column(String(255), nullable=False)
     is_active = Column(Boolean(), default=True)
     is_superuser = Column(Boolean(), default=False)
