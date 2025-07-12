@@ -1,12 +1,17 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=42.0.0", "wheel>=0.37.0", "setuptools_scm[toml]>=6.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "logy-desk-backend"
-version = "0.1.0"
+dynamic = ["version"]
 description = "FastAPI 기반의 멀티 에이전트 채팅 백엔드 애플리케이션"
 readme = "README.md"
+requires-python = ">=3.9,<3.13"
+
+[project.urls]
+"Homepage" = "https://github.com/your-org/logy-desk-backend"
+"Bug Tracker" = "https://github.com/your-org/logy-desk-backend/issues"
 requires-python = ">=3.9"
 license = {text = "MIT"}
 authors = [
@@ -125,10 +130,14 @@ check_untyped_defs = true
 no_implicit_optional = true
 strict_optional = true
 
-[[tool.mypy.overrides]]
-module = ["sqlalchemy.*"]
-ignore_missing_imports = true
+[tool.setuptools_scm]
+write_to = "app/_version.py"
 
-[[tool.mypy.overrides]]
-module = ["alembic.*"]
+[tool.mypy.overrides]
+module = [
+    "sqlalchemy.*",
+    "alembic.*",
+    "_pytest.*",
+    "pytest.*"
+]
 ignore_missing_imports = true

@@ -1,0 +1,45 @@
+# Include the README file
+include README.md
+
+# Include the license file
+include LICENSE
+
+# Include package data
+recursive-include app *.py
+recursive-include app/templates *
+recursive-include app/static *
+recursive-include app/alembic *
+
+# Include environment files
+global-include .env.example
+
+# Include requirements files
+include requirements*.txt
+
+# Include test files
+recursive-include tests *
+
+# Include documentation
+recursive-include docs *
+
+# Include type stubs
+recursive-include *.pyi
+
+# Exclude common non-source files
+exclude .gitignore
+exclude .gitattributes
+exclude .git/
+exclude .github/
+exclude .vscode/
+exclude .idea/
+exclude *.py[cod]
+exclude *$py.class
+exclude __pycache__
+exclude .pytest_cache/
+exclude .mypy_cache/
+exclude .coverage
+
+# Include any other necessary files
+global-include *.md
+global-include *.toml
+global-include *.ini
