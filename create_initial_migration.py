@@ -141,7 +141,8 @@ def downgrade():
     op.drop_table('document_chunks')
     op.drop_table('documents')
     op.drop_table('agents')
-    op.drop_table('users')"""
+    op.drop_table('users')
+    # ### end Alembic commands ###
     
     # Write the migration file
     with open(migration_path, 'w') as f:

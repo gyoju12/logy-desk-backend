@@ -9,16 +9,8 @@ async def check_database_schema():
     
     async with async_engine.connect() as conn:
         # Check if tables were created
-        result = await conn.execute(text(
-            """
-            SELECT table_name 
-            FROM information_schema.tables 
-            WHERE table_schema = 'public'
-            ORDER BY table_name;
-            """
-        )
-        
-        tables = [row[0] for row in result.fetchall()]
+        result = await conn.execute(text("""SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;"""))
+        tables = [row[0] for row in await result.fetchall()]
         print("\n📋 Database tables:")
         for table in tables:
             print(f"- {table}")
