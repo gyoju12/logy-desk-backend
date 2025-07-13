@@ -18,6 +18,7 @@ test = [
     "pytest>=7.4.3",
     "pytest-asyncio>=0.21.1",
     "pytest-cov>=4.1.0",
+    "pytest-mock>=3.12.0",
     "httpx>=0.25.1"
 ]
 dev = [
@@ -25,7 +26,8 @@ dev = [
     "isort>=5.12.0",
     "mypy>=1.7.0",
     "flake8>=6.1.0",
-    "pre-commit>=3.5.0"
+    "pre-commit>=3.5.0",
+    "ipdb>=0.13.13"
 ]
 
 [project.urls]
@@ -92,27 +94,6 @@ dependencies = [
     "pytz>=2023.3",
 ]
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=7.4.3",
-    "pytest-asyncio>=0.21.1",
-    "pytest-cov>=4.1.0",
-    "pytest-mock>=3.12.0",
-    "black>=23.11.0",
-    "isort>=5.12.0",
-    "mypy>=1.7.0",
-    "flake8>=6.1.0",
-    "pre-commit>=3.5.0",
-    "ipdb>=0.13.13",
-]
-
-test = [
-    "pytest>=7.4.3",
-    "pytest-asyncio>=0.21.1",
-    "pytest-cov>=4.1.0",
-    "pytest-mock>=3.12.0",
-    "httpx>=0.25.1",
-]
 
 [project.scripts]
 logy-desk = "app.main:app"
