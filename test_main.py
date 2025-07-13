@@ -7,9 +7,11 @@ app = FastAPI(title="Test Logy-Desk API")
 # Create a simple router
 router = APIRouter(prefix="/api/v1")
 
+
 @router.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
 
 # Include the router
 app.include_router(router)

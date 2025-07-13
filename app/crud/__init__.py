@@ -10,5 +10,5 @@ __all__ = [
     "document_crud",
     "agent_crud",
     "chat_message",
-    "chat_session"
+    "chat_session",
 ]

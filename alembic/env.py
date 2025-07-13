@@ -66,12 +66,12 @@ def run_migrations_online() -> None:
     """
     from app.db.database import async_engine
     from sqlalchemy.ext.asyncio import create_async_engine
-    
+
     # Get database URL from settings
     from app.core.config import settings
-    
+
     # Create a sync engine for migrations
-    sync_url = str(settings.DATABASE_URI).replace('+asyncpg', '')
+    sync_url = str(settings.DATABASE_URI).replace("+asyncpg", "")
     connectable = engine_from_config(
         {"sqlalchemy.url": sync_url},
         prefix="sqlalchemy.",

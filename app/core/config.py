@@ -3,16 +3,17 @@ from typing import Optional, List, Dict, Any
 from pydantic import Field, PostgresDsn, field_validator, ConfigDict
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class Settings(BaseSettings):
     # API Configuration
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "Logy-Desk"
-    
+
     # Environment
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     DEBUG: bool = os.getenv("DEBUG", "true").lower() == "true"
     TESTING: bool = os.getenv("TESTING", "false").lower() == "true"
-    
+
     # Database Configuration
     POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")
     POSTGRES_USER: str = os.getenv("POSTGRES_USER", "logy")
@@ -23,28 +24,32 @@ class Settings(BaseSettings):
 
     # ChromaDB Configuration
     CHROMA_DB_PATH: str = os.getenv("CHROMA_DB_PATH", "./chroma_db")
-    
+
     # LLM Provider Configuration
-    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openrouter")  # 'openai' or 'openrouter'
-    
+    LLM_PROVIDER: str = os.getenv(
+        "LLM_PROVIDER", "openrouter"
+    )  # 'openai' or 'openrouter'
+
     # OpenAI Configuration (used as fallback)
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "openai/gpt-4o-mini")
-    
+
     # OpenRouter Configuration
     OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
-    OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+    OPENROUTER_BASE_URL: str = os.getenv(
+        "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
+    )
     OPENROUTER_MODEL: str = os.getenv("OPENROUTER_MODEL", "google/gemma-3-27b-it:free")
-    
+
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = ["*"]
-    
-    @field_validator("DATABASE_URI", mode='before')
+
+    @field_validator("DATABASE_URI", mode="before")
     @classmethod
     def assemble_db_connection(cls, v: Optional[str], info) -> str:
         if isinstance(v, str):
             return v
-        
+
         values = info.data
         return (
             f"postgresql+asyncpg://"
@@ -54,16 +59,17 @@ class Settings(BaseSettings):
             f"{values.get('POSTGRES_PORT')}/"
             f"{values.get('POSTGRES_DB')}"
         )
-    
+
     model_config = SettingsConfigDict(
         env_file=".env",
-        env_file_encoding='utf-8',
-        extra='ignore',  # Ignore extra fields in .env
+        env_file_encoding="utf-8",
+        extra="ignore",  # Ignore extra fields in .env
         case_sensitive=False,
-        env_nested_delimiter='__',
+        env_nested_delimiter="__",
         validate_default=True,
-        protected_namespaces=()
+        protected_namespaces=(),
     )
 
+
 # Initialize settings
-settings: 'Settings' = Settings()  # type: ignore
+settings: "Settings" = Settings()  # type: ignore

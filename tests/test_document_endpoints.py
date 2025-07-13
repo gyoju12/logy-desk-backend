@@ -22,12 +22,13 @@ engine = create_engine(
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 # Create test client with overridden database session
 @pytest.fixture(scope="module")
 def client():
     # Create all tables
     Base.metadata.create_all(bind=engine)
-    
+
     # Override get_db dependency
     def override_get_db():
         try:
@@ -35,13 +36,13 @@ def client():
             yield db
         finally:
             db.close()
-    
+
     # Store original dependency
     original_get_db = app.dependency_overrides.get(get_db, None)
-    
+
     # Apply override
     app.dependency_overrides[get_db] = override_get_db
-    
+
     with TestClient(app) as c:
         try:
             yield c
@@ -50,6 +51,7 @@ def client():
             app.dependency_overrides.clear()
             if original_get_db is not None:
                 app.dependency_overrides[get_db] = original_get_db
+
 
 # Clean up database between tests
 @pytest.fixture(autouse=True)
@@ -66,6 +68,7 @@ def cleanup():
     finally:
         db.close()
 
+
 # Fixture for creating a test document
 @pytest.fixture
 def test_document():
@@ -75,50 +78,51 @@ def test_document():
         with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as tmp:
             tmp.write(b"Test document content")
             tmp_path = tmp.name
-        
+
         # Create document in database
         db_document = Document(
             title="Test Document",
             filename=os.path.basename(tmp_path),
             content_type="text/plain",
-            size=os.path.getsize(tmp_path)
+            size=os.path.getsize(tmp_path),
         )
         db.add(db_document)
         db.commit()
         db.refresh(db_document)
-        
+
         # Create uploads directory if it doesn't exist
         os.makedirs("uploads", exist_ok=True)
-        
+
         # Move the temp file to uploads
         dest_path = os.path.join("uploads", os.path.basename(tmp_path))
         if os.path.exists(tmp_path):
             if os.path.exists(dest_path):
                 os.unlink(dest_path)
             os.rename(tmp_path, dest_path)
-        
+
         yield db_document
-        
+
         # Clean up file
         if os.path.exists(dest_path):
             os.unlink(dest_path)
-            
+
     finally:
         db.close()
+
 
 def test_upload_document(client, tmp_path):
     """Test uploading a document"""
     # Create a test file
     test_file = tmp_path / "test.txt"
     test_file.write_text("Test document content")
-    
+
     with open(test_file, "rb") as f:
         response = client.post(
             "/documents/upload",
             files={"file": ("test.txt", f, "text/plain")},
-            data={"title": "Test Upload"}
+            data={"title": "Test Upload"},
         )
-    
+
     assert response.status_code == status.HTTP_201_CREATED
     data = response.json()
     assert "id" in data
@@ -126,43 +130,46 @@ def test_upload_document(client, tmp_path):
     assert data["filename"].endswith(".txt")
     assert data["content_type"] == "text/plain"
     assert data["size"] > 0
-    
+
     # Clean up
     doc_id = data["id"]
     response = client.delete(f"/documents/{doc_id}")
     assert response.status_code == status.HTTP_204_NO_CONTENT
 
+
 def test_list_documents(client, test_document):
     """Test listing all documents"""
     response = client.get("/documents")
     assert response.status_code == status.HTTP_200_OK
-    
+
     documents = response.json()
     assert isinstance(documents, list)
     assert len(documents) == 1
     assert documents[0]["id"] == str(test_document.id)
     assert documents[0]["title"] == test_document.title
 
+
 def test_get_document(client, test_document):
     """Test getting a document by ID"""
     response = client.get(f"/documents/{test_document.id}")
     assert response.status_code == status.HTTP_200_OK
-    
+
     data = response.json()
     assert data["id"] == str(test_document.id)
     assert data["title"] == test_document.title
     assert data["filename"] == test_document.filename
+
 
 def test_delete_document(client, test_document):
     """Test deleting a document"""
     # First verify the document exists
     response = client.get(f"/documents/{test_document.id}")
     assert response.status_code == status.HTTP_200_OK
-    
+
     # Delete the document
     response = client.delete(f"/documents/{test_document.id}")
     assert response.status_code == status.HTTP_204_NO_CONTENT
-    
+
     # Verify it's gone
     response = client.get(f"/documents/{test_document.id}")
     assert response.status_code == status.HTTP_404_NOT_FOUND

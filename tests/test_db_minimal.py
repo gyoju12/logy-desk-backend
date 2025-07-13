@@ -11,9 +11,11 @@ from app.models.db_models import User, Document
 # Use in-memory SQLite for testing
 TEST_DATABASE_URL = "sqlite:///:memory:"
 
+
 @pytest.fixture(scope="module")
 def engine():
     return create_engine(TEST_DATABASE_URL)
+
 
 @pytest.fixture(scope="module")
 def tables(engine):
@@ -21,17 +23,19 @@ def tables(engine):
     yield
     Base.metadata.drop_all(bind=engine)
 
+
 @pytest.fixture
 def db_session(engine, tables):
     connection = engine.connect()
     transaction = connection.begin()
     session = sessionmaker(autocommit=False, autoflush=False, bind=engine)()
-    
+
     yield session
-    
+
     session.close()
     transaction.rollback()
     connection.close()
+
 
 def test_db_connection(db_session):
     # Simple test to verify database connection works
@@ -48,7 +52,7 @@ def test_create_document(db_session):
         is_active=True,
         is_superuser=False,
         created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
+        updated_at=datetime.utcnow(),
     )
     db_session.add(user)
     db_session.commit()
@@ -63,7 +67,7 @@ def test_create_document(db_session):
         file_type="text/plain",
         status="uploaded",
         created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
+        updated_at=datetime.utcnow(),
     )
     db_session.add(document)
     db_session.commit()

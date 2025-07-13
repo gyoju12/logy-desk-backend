@@ -31,6 +31,7 @@ async_session_maker = async_sessionmaker(
     expire_on_commit=False,
 )
 
+
 # Dependency to get DB session
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
@@ -46,16 +47,18 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             logger.error(f"Database error: {str(e)}")
             raise
 
+
 # For synchronous operations (e.g., in scripts)
 def get_sync_session():
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
-    
+
     sync_engine = create_engine(
         DATABASE_URL.replace("+asyncpg", ""),
         pool_pre_ping=True,
     )
     return sessionmaker(autocommit=False, autoflush=False, bind=sync_engine)()
+
 
 # Initialize database
 async def init_db() -> None:
@@ -63,19 +66,19 @@ async def init_db() -> None:
     # Import models to ensure they are registered with SQLAlchemy
     from app.models.db_models import User  # noqa: F401
     from app.db.base import Base
-    
+
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     # Create default admin user if not exists
     try:
         from app.core.security import get_password_hash
         from app.crud.crud_user import get_user_by_email, create_user
         from app.schemas.user import UserCreate
-        
+
         admin_email = "admin@example.com"
         admin_password = "admin123"
-        
+
         async with async_session_maker() as db:
             admin = await get_user_by_email(db, email=admin_email)
             if not admin:
@@ -83,7 +86,7 @@ async def init_db() -> None:
                     email=admin_email,
                     password=admin_password,
                     is_superuser=True,
-                    is_active=True
+                    is_active=True,
                 )
                 await create_user(db, user_in=user_in)
                 print("Created default admin user")

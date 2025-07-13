@@ -18,15 +18,16 @@ except ImportError as e:
     print("Current working directory:", os.getcwd())
     raise
 
+
 async def check_db_connection():
     print("🔍 Checking database connection...")
     print(f"📌 Current working directory: {os.getcwd()}")
     print(f"📌 Python path: {sys.path}")
-    
+
     try:
         print(f"🔗 Database URL: {settings.DATABASE_URI}")
         print("🔄 Attempting to connect to the database...")
-        
+
         # Test connection with async engine
         async with async_engine.connect() as conn:
             print("✅ Successfully connected to the database!")
@@ -34,12 +35,12 @@ async def check_db_connection():
             result = await conn.execute(text("SELECT 1"))
             test_result = result.scalar()
             print(f"✅ Test query successful! Result: {test_result}")
-            
+
             # Get database version
             result = await conn.execute(text("SELECT version()"))
             db_version = result.scalar()
             print(f"📊 Database version: {db_version}")
-            
+
     except Exception as e:
         print("❌ Database connection failed!")
         print(f"Error type: {type(e).__name__}")
@@ -51,6 +52,7 @@ async def check_db_connection():
         print("4. Ensure the database user has the correct permissions")
         print("5. Check your network connection to the database server")
 
+
 if __name__ == "__main__":
     print("🚀 Starting database connection test...\n")
     try:
@@ -58,6 +60,7 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n❌ Unhandled error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
     print("\n✨ Database check completed!")

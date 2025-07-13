@@ -8,14 +8,16 @@ from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 
+
 def get_async_db_url(sync_url: str) -> str:
     """Convert a synchronous PostgreSQL URL to an async one."""
     url_str = str(sync_url)  # Convert URL object to string first
-    if url_str.startswith('postgresql://'):
-        return url_str.replace('postgresql://', 'postgresql+asyncpg://', 1)
-    elif not url_str.startswith('postgresql+asyncpg://'):
+    if url_str.startswith("postgresql://"):
+        return url_str.replace("postgresql://", "postgresql+asyncpg://", 1)
+    elif not url_str.startswith("postgresql+asyncpg://"):
         return f"postgresql+asyncpg://{url_str.split('://')[-1]}"
     return url_str
+
 
 # Create async engine
 async_engine = create_async_engine(
@@ -26,7 +28,7 @@ async_engine = create_async_engine(
     pool_recycle=3600,
     pool_size=5,
     max_overflow=10,
-    poolclass=NullPool if settings.TESTING else None
+    poolclass=NullPool if settings.TESTING else None,
 )
 
 # Create async session factory
@@ -40,7 +42,7 @@ async_session_maker = async_sessionmaker(
 
 # Create sync engine for migrations
 sync_engine = create_engine(
-    str(settings.DATABASE_URI).replace('+asyncpg', ''),
+    str(settings.DATABASE_URI).replace("+asyncpg", ""),
     pool_pre_ping=True,
 )
 
@@ -53,6 +55,7 @@ SessionLocal = sessionmaker(
 
 # Base class for all models
 Base = declarative_base()
+
 
 # Async session dependency
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -69,6 +72,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             logger = logging.getLogger(__name__)
             logger.error(f"Database error: {str(e)}")
             raise
+
 
 # Sync session for migrations and testing
 def get_sync_db() -> Generator[Session, None, None]:

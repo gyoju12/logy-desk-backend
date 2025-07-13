@@ -7,10 +7,11 @@ from app.models.db_models import Document, User
 from app.models.schemas import DocumentCreate, DocumentUpdate
 from .base import CRUDBase
 
+
 class CRUDDocument(CRUDBase[Document, DocumentCreate, DocumentUpdate]):
     def __init__(self):
         super().__init__(Document)
-    
+
     async def get_by_filename(
         self, db: AsyncSession, *, filename: str
     ) -> Optional[Document]:
@@ -18,7 +19,7 @@ class CRUDDocument(CRUDBase[Document, DocumentCreate, DocumentUpdate]):
             select(self.model).filter(self.model.file_name == filename)
         )
         return result.scalars().first()
-    
+
     async def get_multi_by_owner(
         self, db: AsyncSession, *, user_id: str, skip: int = 0, limit: int = 100
     ) -> List[Document]:
@@ -29,14 +30,9 @@ class CRUDDocument(CRUDBase[Document, DocumentCreate, DocumentUpdate]):
             .limit(limit)
         )
         return result.scalars().all()
-    
+
     async def get_multi_by_type(
-        self, 
-        db: AsyncSession, 
-        *, 
-        file_type: str, 
-        skip: int = 0, 
-        limit: int = 100
+        self, db: AsyncSession, *, file_type: str, skip: int = 0, limit: int = 100
     ) -> List[Document]:
         result = await db.execute(
             select(self.model)
@@ -45,31 +41,32 @@ class CRUDDocument(CRUDBase[Document, DocumentCreate, DocumentUpdate]):
             .limit(limit)
         )
         return result.scalars().all()
-    
+
     async def search(
-        self, 
-        db: AsyncSession, 
-        *, 
+        self,
+        db: AsyncSession,
+        *,
         query: str,
         owner_id: Optional[str] = None,
-        skip: int = 0, 
-        limit: int = 100
+        skip: int = 0,
+        limit: int = 100,
     ) -> List[Document]:
         search = f"%{query}%"
         stmt = select(self.model).filter(
             or_(
                 self.model.title.ilike(search),
                 self.model.filename.ilike(search),
-                self.model.content_type.ilike(search)
+                self.model.content_type.ilike(search),
             )
         )
-        
+
         if owner_id:
             stmt = stmt.filter(self.model.owner_id == owner_id)
-            
+
         stmt = stmt.offset(skip).limit(limit)
         result = await db.execute(stmt)
         return result.scalars().all()
+
 
 # Create a singleton instance
 document = CRUDDocument()
