@@ -1,12 +1,11 @@
 import os
 import tempfile
-from datetime import datetime, timedelta
+from datetime import timedelta
 from uuid import uuid4
 
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from jose import jwt
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -16,7 +15,6 @@ from app.core.security import create_access_token
 from app.db.base import Base
 from app.db.database import get_db
 from app.main import API_PREFIX, app
-from app.models.db_models import Document, User
 
 # Create async test database engine
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
