@@ -16,6 +16,18 @@ license = {text = "MIT"}
 authors = [
     {name = "Logy Desk Team", email = "dev@logydesk.com"}
 ]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Framework :: FastAPI",
+    "Topic :: Software Development :: Libraries :: Application Frameworks"
+]
 
 [project.optional-dependencies]
 test = [
@@ -37,20 +49,6 @@ dev = [
 [project.urls]
 "Homepage" = "https://github.com/your-org/logy-desk-backend"
 "Bug Tracker" = "https://github.com/your-org/logy-desk-backend/issues"
-
-[project]
-classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Framework :: FastAPI",
-    "Topic :: Software Development :: Libraries :: Application Frameworks"
-]
 dependencies = [
     # Core
     "fastapi>=0.104.1",
