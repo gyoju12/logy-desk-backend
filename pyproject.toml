@@ -37,6 +37,8 @@ dev = [
 [project.urls]
 "Homepage" = "https://github.com/your-org/logy-desk-backend"
 "Bug Tracker" = "https://github.com/your-org/logy-desk-backend/issues"
+
+[project]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
