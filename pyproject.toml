@@ -112,6 +112,20 @@ addopts = "-v --cov=app --cov-report=term-missing"
 line-length = 88
 target-version = ["py39"]
 include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | _build
+    | buck-out
+    | build
+    | dist
+    | alembic/versions
+)/    
+'''
 
 [tool.isort]
 profile = "black"
@@ -121,6 +135,7 @@ include_trailing_comma = true
 force_grid_wrap = 0
 use_parentheses = true
 ensure_newline_before_comments = true
+skip = ["app/_version.py", "alembic/versions"]
 
 [tool.mypy]
 python_version = "3.9"
@@ -132,9 +147,6 @@ disallow_untyped_decorators = true
 check_untyped_defs = true
 no_implicit_optional = true
 strict_optional = true
-
-[tool.isort]
-skip = ["app/_version.py"]
 
 [tool.setuptools_scm]
 write_to = "app/_version.py"
