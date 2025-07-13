@@ -12,8 +12,6 @@ dynamic = ["version"]
 description = "FastAPI 기반의 멀티 에이전트 채팅 백엔드 애플리케이션"
 readme = "README.md"
 requires-python = ">=3.9,<3.13"
-
-[project.optional-dependencies]
 test = [
     "pytest>=7.4.3",
     "pytest-asyncio>=0.21.1",
