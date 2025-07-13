@@ -69,6 +69,5 @@ setup(
     include_package_data=True,
     package_data={
         "": ["*.yaml", "*.json", "*.txt"]
-    },
-    python_requires=">=3.9",
+    }
 )
