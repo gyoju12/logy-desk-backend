@@ -374,3 +374,6 @@ __marimo__/
 
 # 업로드 파일
 uploads/
+
+# setuptools-scm
+app/_version.py
