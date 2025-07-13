@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.core.config import settings
+from app.models.db_models import DocumentChunk, UploadedFile, User
 from app.core.password_utils import get_password_hash
 from app.core.security import create_access_token
 from app.db.base import Base

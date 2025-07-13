@@ -2,7 +2,6 @@ import os
 import tempfile
 from datetime import datetime, timezone
 
-import pytest
 from fastapi import status
 
 # Test data
