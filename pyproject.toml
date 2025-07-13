@@ -124,6 +124,7 @@ exclude = '''
     | build
     | dist
     | alembic/versions
+    | app/_version.py
 )/    
 '''
 
