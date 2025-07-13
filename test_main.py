@@ -1,5 +1,5 @@
-from fastapi import FastAPI, APIRouter
 import uvicorn
+from fastapi import APIRouter, FastAPI
 
 # Initialize FastAPI app
 app = FastAPI(title="Test Logy-Desk API")

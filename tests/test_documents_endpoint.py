@@ -1,15 +1,17 @@
-import pytest
 import uuid
 from datetime import datetime
+
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.core.security import create_access_token, get_password_hash
+from app.db.base import Base
+
 # Import FastAPI app and models
 from app.main import app
-from app.db.base import Base
-from app.models.db_models import User, Document
-from app.core.security import get_password_hash, create_access_token
+from app.models.db_models import Document, User
 
 # Use in-memory SQLite for testing
 TEST_DATABASE_URL = "sqlite:///:memory:"

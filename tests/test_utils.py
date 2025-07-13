@@ -1,9 +1,11 @@
 import json
-from uuid import UUID
 from typing import Any, Dict, Optional
-from sqlalchemy.types import TypeDecorator, CHAR, Text
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
+from uuid import UUID
+
 import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.types import CHAR, Text, TypeDecorator
 
 
 class GUID(TypeDecorator):

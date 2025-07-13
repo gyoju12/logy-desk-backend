@@ -1,8 +1,9 @@
 import asyncio
+import logging
 import os
 import sys
-import logging
 from pathlib import Path
+
 from sqlalchemy import text
 
 # Add the project root to the Python path
@@ -10,8 +11,8 @@ project_root = str(Path(__file__).resolve().parent)
 sys.path.append(project_root)
 
 try:
-    from app.db.base import async_engine, AsyncSessionLocal
     from app.core.config import settings
+    from app.db.base import AsyncSessionLocal, async_engine
 except ImportError as e:
     print(f"❌ Import error: {e}")
     print("Current Python path:", sys.path)

@@ -1,10 +1,12 @@
 import os
 import sys
-from alembic.config import Config
-from alembic import command
-from sqlalchemy import create_engine
-from sqlalchemy_utils import database_exists, create_database, drop_database
+
 from dotenv import load_dotenv
+from sqlalchemy import create_engine
+from sqlalchemy_utils import create_database, database_exists, drop_database
+
+from alembic import command
+from alembic.config import Config
 
 # Load environment variables
 load_dotenv()

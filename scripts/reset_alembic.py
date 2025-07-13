@@ -2,7 +2,8 @@
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from app.db.session import engine, SessionLocal
+
+from app.db.session import SessionLocal, engine
 
 
 def reset_alembic():

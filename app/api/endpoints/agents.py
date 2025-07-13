@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from uuid import uuid4
+
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import schemas
 from app.crud import crud_agent
 from app.db.session import get_db
+from app.models import schemas
 
 router = APIRouter()
 

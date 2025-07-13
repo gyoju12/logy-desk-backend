@@ -1,8 +1,9 @@
 import os
 import sys
-from sqlalchemy import create_engine, inspect
-from sqlalchemy_utils import database_exists, create_database
+
 from dotenv import load_dotenv
+from sqlalchemy import create_engine, inspect
+from sqlalchemy_utils import create_database, database_exists
 
 # Add the project root to the Python path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

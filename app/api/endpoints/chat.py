@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from typing import List
-from sqlalchemy.orm import Session
 from datetime import datetime
+from typing import List
 
-from app.models import schemas
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
 from app.crud import crud_chat
 from app.db.database import get_db
+from app.models import schemas
 from app.services.llm_client import get_llm_client
 
 # Default user ID for MVP

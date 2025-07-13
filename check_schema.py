@@ -1,8 +1,9 @@
 import asyncio
-from sqlalchemy import inspect
-from sqlalchemy import text
-from app.db.base import async_engine, AsyncSessionLocal
+
+from sqlalchemy import inspect, text
+
 from app.core.config import settings
+from app.db.base import AsyncSessionLocal, async_engine
 
 
 async def check_database_schema():

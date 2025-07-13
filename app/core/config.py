@@ -1,6 +1,7 @@
 import os
-from typing import Optional, List, Dict, Any
-from pydantic import Field, PostgresDsn, field_validator, ConfigDict
+from typing import Any, Dict, List, Optional
+
+from pydantic import ConfigDict, Field, PostgresDsn, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 

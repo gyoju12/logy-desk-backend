@@ -1,6 +1,7 @@
-import os
-import httpx
 import asyncio
+import os
+
+import httpx
 
 # Test configuration
 BASE_URL = "http://localhost:8000/api/v1"

@@ -1,8 +1,9 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.orm import sessionmaker, declarative_base
-from sqlalchemy.pool import NullPool
-from typing import AsyncGenerator
 import logging
+from typing import AsyncGenerator
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 
@@ -64,8 +65,8 @@ def get_sync_session():
 async def init_db() -> None:
     """Initialize the database with base data."""
     # Import models to ensure they are registered with SQLAlchemy
-    from app.models.db_models import User  # noqa: F401
     from app.db.base import Base
+    from app.models.db_models import User  # noqa: F401
 
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -73,7 +74,7 @@ async def init_db() -> None:
     # Create default admin user if not exists
     try:
         from app.core.security import get_password_hash
-        from app.crud.crud_user import get_user_by_email, create_user
+        from app.crud.crud_user import create_user, get_user_by_email
         from app.schemas.user import UserCreate
 
         admin_email = "admin@example.com"

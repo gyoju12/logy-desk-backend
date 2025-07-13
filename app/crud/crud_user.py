@@ -1,9 +1,11 @@
-from typing import Optional, Any, Dict
+from typing import Any, Dict, Optional
+
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel
 
 from app.models import User
+
 from .base import CRUDBase
 
 

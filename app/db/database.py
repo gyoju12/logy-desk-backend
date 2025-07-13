@@ -1,10 +1,12 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from typing import AsyncGenerator, Generator
+
+from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
+
+from app.core.config import settings
 from app.db.base import Base
 from app.models.models import Agent
-from app.core.config import settings
 
 
 def get_async_db_url(sync_url) -> str:

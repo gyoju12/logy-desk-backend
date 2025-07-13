@@ -3,9 +3,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.main import app, API_PREFIX
 from app.db.base import Base
 from app.db.database import SQLALCHEMY_DATABASE_URL
+from app.main import API_PREFIX, app
 
 # Use in-memory SQLite for testing
 TEST_DATABASE_URL = "sqlite:///:memory:"

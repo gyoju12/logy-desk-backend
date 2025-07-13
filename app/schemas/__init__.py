@@ -1,4 +1,3 @@
-from .user import User, UserCreate, UserInDB, UserUpdate
 from .document import (
     Document,
     DocumentBase,
@@ -8,6 +7,7 @@ from .document import (
     DocumentList,
     DocumentUpdate,
 )
+from .user import User, UserCreate, UserInDB, UserUpdate
 
 __all__ = [
     "User",

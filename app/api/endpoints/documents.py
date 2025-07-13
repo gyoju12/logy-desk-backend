@@ -1,17 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
-from typing import List, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import func, select
-import shutil
-import os
 import logging
+import os
+import shutil
 from datetime import datetime
 from pathlib import Path
+from typing import List, Optional
 
-from app.schemas import Document as DocumentSchema
-from app.models.db_models import User, Document
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.crud import crud_document
 from app.db.session import get_db
+from app.models.db_models import Document, User
+from app.schemas import Document as DocumentSchema
 
 # Default user ID for MVP
 DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000000"

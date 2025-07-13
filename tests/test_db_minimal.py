@@ -1,12 +1,13 @@
-import pytest
 import uuid
 from datetime import datetime
+
+import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 # Import models
 from app.db.base import Base
-from app.models.db_models import User, Document
+from app.models.db_models import Document, User
 
 # Use in-memory SQLite for testing
 TEST_DATABASE_URL = "sqlite:///:memory:"

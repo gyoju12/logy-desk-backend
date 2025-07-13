@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from typing import List
-from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
+from typing import List
 
-from app.models import schemas
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.crud import crud_chat
 from app.db.database import get_db
+from app.models import schemas
 
 # Default user ID for MVP
 DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000000"

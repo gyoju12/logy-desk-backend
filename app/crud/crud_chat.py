@@ -1,15 +1,18 @@
+from datetime import datetime, timezone
 from typing import List, Optional
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from datetime import datetime, timezone
-from app.models.models import ChatSession, ChatMessage
+
+from app.models.models import ChatMessage, ChatSession
 from app.models.schemas import (
-    ChatSessionCreate,
-    ChatSessionUpdate,
     ChatMessageCreate,
     ChatMessageUpdate,
+    ChatSessionCreate,
+    ChatSessionUpdate,
 )
+
 from .base import CRUDBase
 
 

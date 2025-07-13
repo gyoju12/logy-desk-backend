@@ -1,8 +1,9 @@
 import os
 import sys
-from sqlalchemy import create_engine
-from sqlalchemy_utils import database_exists, create_database
+
 from dotenv import load_dotenv
+from sqlalchemy import create_engine
+from sqlalchemy_utils import create_database, database_exists
 
 
 def ensure_database():

@@ -1,13 +1,14 @@
 import os
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.main import app
 from app.db.base import Base
 from app.db.database import get_db
+from app.main import app
 from tests.test_utils import patch_models_for_sqlite
 
 # Use SQLite in-memory database for testing
@@ -66,8 +67,8 @@ def db_session():
 # Fixture to create a test agent
 @pytest.fixture
 def test_agent(db_session):
-    from app.models.schemas import AgentCreate
     from app.crud import crud_agent
+    from app.models.schemas import AgentCreate
 
     agent_data = AgentCreate(
         name="Test Agent",
@@ -82,8 +83,8 @@ def test_agent(db_session):
 # Fixture to create a test chat session
 @pytest.fixture
 def test_chat_session(db_session, test_agent):
-    from app.models.schemas import ChatSessionCreate
     from app.crud import crud_chat
+    from app.models.schemas import ChatSessionCreate
 
     session_data = ChatSessionCreate(title="Test Chat", agent_id=test_agent.id)
     return crud_chat.chat_session.create(db=db_session, obj_in=session_data)

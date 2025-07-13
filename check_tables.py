@@ -7,6 +7,7 @@ project_root = str(Path(__file__).resolve().parent)
 sys.path.append(project_root)
 
 from sqlalchemy import text
+
 from app.db.base import async_engine
 
 

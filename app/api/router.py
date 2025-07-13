@@ -1,8 +1,9 @@
 from fastapi import APIRouter
+
 from .endpoints.agents import router as agents_router
-from .endpoints.documents import router as documents_router
-from .endpoints.chat_sessions import router as chat_sessions_router
 from .endpoints.chat import router as chat_router
+from .endpoints.chat_sessions import router as chat_sessions_router
+from .endpoints.documents import router as documents_router
 
 # Create main API router
 api_router = APIRouter()

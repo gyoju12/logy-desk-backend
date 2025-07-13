@@ -2,8 +2,7 @@ import os
 import sys
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from sqlalchemy import engine_from_config, pool
 
 from alembic import context
 
@@ -64,11 +63,11 @@ def run_migrations_online() -> None:
     In this scenario we need to create an Engine
     and associate a connection with the context.
     """
-    from app.db.database import async_engine
     from sqlalchemy.ext.asyncio import create_async_engine
 
     # Get database URL from settings
     from app.core.config import settings
+    from app.db.database import async_engine
 
     # Create a sync engine for migrations
     sync_url = str(settings.DATABASE_URI).replace("+asyncpg", "")

@@ -1,8 +1,9 @@
 import os
 import tempfile
+from datetime import datetime, timezone
+
 import pytest
 from fastapi import status
-from datetime import datetime, timezone
 
 # Test data
 TEST_AGENT = {

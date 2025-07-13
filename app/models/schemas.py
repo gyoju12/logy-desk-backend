@@ -1,13 +1,14 @@
 from datetime import datetime
-from typing import List, Literal, Optional, Dict, Any, Union
+from typing import Any, Dict, List, Literal, Optional, Union
+from uuid import UUID, uuid4
+
 from pydantic import (
     BaseModel,
     Field,
     field_serializer,
-    model_serializer,
     field_validator,
+    model_serializer,
 )
-from uuid import UUID, uuid4
 
 # Common types
 AgentType = Literal["MAIN", "SUB"]

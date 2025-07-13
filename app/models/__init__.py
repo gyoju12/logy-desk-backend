@@ -1,11 +1,11 @@
 # Re-export models from db_models
 from app.models.db_models import (
-    User,
     Agent,
+    ChatMessage,
+    ChatSession,
     Document,
     DocumentChunk,
-    ChatSession,
-    ChatMessage,
+    User,
 )
 
 __all__ = [
