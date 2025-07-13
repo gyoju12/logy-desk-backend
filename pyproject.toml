@@ -12,6 +12,12 @@ dynamic = ["version"]
 description = "FastAPI 기반의 멀티 에이전트 채팅 백엔드 애플리케이션"
 readme = "README.md"
 requires-python = ">=3.9,<3.13"
+license = {text = "MIT"}
+authors = [
+    {name = "Logy Desk Team", email = "dev@logydesk.com"}
+]
+
+[project.optional-dependencies]
 test = [
     "pytest>=7.4.3",
     "pytest-asyncio>=0.21.1",
@@ -31,11 +37,6 @@ dev = [
 [project.urls]
 "Homepage" = "https://github.com/your-org/logy-desk-backend"
 "Bug Tracker" = "https://github.com/your-org/logy-desk-backend/issues"
-requires-python = ">=3.9"
-license = {text = "MIT"}
-authors = [
-    {name = "Logy Desk Team", email = "dev@logydesk.com"}
-]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
