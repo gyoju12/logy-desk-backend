@@ -1,9 +1,30 @@
 from setuptools import setup, find_packages
+import os
+from pathlib import Path
+
+# Read requirements from pyproject.toml
+base_dir = Path(__file__).parent
+
+# Read version from _version.py if it exists, otherwise use a default
+version = {}
+version_path = base_dir / "app" / "_version.py"
+if version_path.exists():
+    with open(version_path) as f:
+        exec(f.read(), version)
+else:
+    version['__version__'] = '0.1.0'
+
+# Read long description from README.md
+readme_path = base_dir / "README.md"
+long_description = ""
+if readme_path.exists():
+    with open(readme_path, "r", encoding="utf-8") as f:
+        long_description = f.read()
 
 setup(
     name="logy-desk-backend",
-    version="0.1.0",
-    packages=find_packages(),
+    version=version['__version__'],
+    packages=find_packages(include=['app*']),
     install_requires=[
         # Core Dependencies
         "fastapi>=0.104.1",
@@ -35,19 +56,19 @@ setup(
         "openai>=1.3.5",
         "httpx>=0.25.1"
     ],
-    extras_require={
-        "test": [
-            "pytest>=7.4.3",
-            "pytest-asyncio>=0.21.1",
-            "pytest-cov>=4.1.0",
-            "httpx>=0.25.1"
-        ],
-        "dev": [
-            "black>=23.11.0",
-            "isort>=5.12.0",
-            "mypy>=1.7.0",
-            "flake8>=6.1.0"
-        ]
+    # These are now defined in pyproject.toml
+    extras_require={},
+    # Project metadata
+    author="Logy Desk Team",
+    author_email="dev@logydesk.com",
+    description="FastAPI 기반의 멀티 에이전트 채팅 백엔드 애플리케이션",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    python_requires=">=3.9,<3.13",
+    # Include package data
+    include_package_data=True,
+    package_data={
+        "": ["*.yaml", "*.json", "*.txt"]
     },
     python_requires=">=3.9",
 )

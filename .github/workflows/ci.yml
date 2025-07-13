@@ -42,10 +42,14 @@ jobs:
       with:
         python-version: '3.11'
         
-    - name: Install dependencies
+    - name: Install build tools
       run: |
         python -m pip install --upgrade pip
-        pip install -e ".[test]"
+        pip install --upgrade setuptools wheel setuptools_scm[toml]
+        
+    - name: Install project in development mode
+      run: |
+        pip install -e .[test]
         
     - name: Set up environment variables
       run: |
@@ -76,10 +80,14 @@ jobs:
       with:
         python-version: '3.11'
         
-    - name: Install dependencies
+    - name: Install build tools
       run: |
         python -m pip install --upgrade pip
-        pip install -e ".[dev]"
+        pip install --upgrade setuptools wheel setuptools_scm[toml]
+        
+    - name: Install project in development mode
+      run: |
+        pip install -e .[dev]
         
     - name: Run black
       run: black --check .
