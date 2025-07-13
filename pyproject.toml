@@ -1,7 +1,7 @@
 [build-system]
 requires = [
-    "setuptools>=42.0.0",
-    "wheel>=0.37.0",
+    "setuptools>=61.0",
+    "wheel",
     "setuptools_scm[toml]>=6.0"
 ]
 build-backend = "setuptools.build_meta"
@@ -28,27 +28,6 @@ classifiers = [
     "Framework :: FastAPI",
     "Topic :: Software Development :: Libraries :: Application Frameworks"
 ]
-
-[project.optional-dependencies]
-test = [
-    "pytest>=7.4.3",
-    "pytest-asyncio>=0.21.1",
-    "pytest-cov>=4.1.0",
-    "pytest-mock>=3.12.0",
-    "httpx>=0.25.1"
-]
-dev = [
-    "black>=23.11.0",
-    "isort>=5.12.0",
-    "mypy>=1.7.0",
-    "flake8>=6.1.0",
-    "pre-commit>=3.5.0",
-    "ipdb>=0.13.13"
-]
-
-[project.urls]
-"Homepage" = "https://github.com/your-org/logy-desk-backend"
-"Bug Tracker" = "https://github.com/your-org/logy-desk-backend/issues"
 dependencies = [
     # Core
     "fastapi>=0.104.1",
@@ -93,6 +72,26 @@ dependencies = [
     "pytz>=2023.3",
 ]
 
+[project.optional-dependencies]
+test = [
+    "pytest>=7.4.3",
+    "pytest-asyncio>=0.21.1",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.12.0",
+    "httpx>=0.25.1"
+]
+dev = [
+    "black>=23.11.0",
+    "isort>=5.12.0",
+    "mypy>=1.7.0",
+    "flake8>=6.1.0",
+    "pre-commit>=3.5.0",
+    "ipdb>=0.13.13"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/your-org/logy-desk-backend"
+"Bug Tracker" = "https://github.com/your-org/logy-desk-backend/issues"
 
 [project.scripts]
 logy-desk = "app.main:app"
