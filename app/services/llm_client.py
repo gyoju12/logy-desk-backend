@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+from typing import Dict, List
 
 import httpx
 from openai import AsyncOpenAI
