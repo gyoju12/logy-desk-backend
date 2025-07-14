@@ -5,6 +5,7 @@ from pathlib import Path
 
 
 def create_initial_migration():
+    """Create an initial database migration file."""
     # Get the migrations/versions directory
     migrations_dir = Path(__file__).parent / "migrations"
     versions_dir = migrations_dir / "versions"
@@ -17,9 +18,8 @@ def create_initial_migration():
     migration_name = f"{timestamp}_initial_migration.py"
     migration_path = versions_dir / migration_name
 
-    # Migration file content
-    migration_content = """"""  # Initial database migration
-
+    # Migration file content with proper string formatting
+    migration_template = '''"""Initial database migration"""
 
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
@@ -27,7 +27,7 @@ from sqlalchemy.dialects import postgresql
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "{revision}"
+revision = "{timestamp}"
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -184,7 +184,9 @@ def upgrade():
     )
 
     # Create indexes
-    op.create_index(op.f("ix_agents_user_id"), "agents", ["user_id"], unique=False)
+    op.create_index(
+        op.f("ix_agents_user_id"), "agents", ["user_id"], unique=False
+    )
     op.create_index(
         op.f("ix_chat_messages_session_id"),
         "chat_messages",
@@ -205,8 +207,12 @@ def upgrade():
 def downgrade():
     # Drop indexes first
     op.drop_index(op.f("ix_documents_user_id"), table_name="documents")
-    op.drop_index(op.f("ix_document_chunks_document_id"), table_name="document_chunks")
-    op.drop_index(op.f("ix_chat_messages_session_id"), table_name="chat_messages")
+    op.drop_index(
+        op.f("ix_document_chunks_document_id"), table_name="document_chunks"
+    )
+    op.drop_index(
+        op.f("ix_chat_messages_session_id"), table_name="chat_messages"
+    )
     op.drop_index(op.f("ix_agents_user_id"), table_name="agents")
 
     # Drop tables in reverse order of creation
@@ -216,11 +222,11 @@ def downgrade():
     op.drop_table("documents")
     op.drop_table("agents")
     op.drop_table("users")
-    # ### end Alembic commands ###
+'''
 
     # Write the migration file
     with open(migration_path, "w") as f:
-        f.write(migration_content.format(revision=timestamp))
+        f.write(migration_template.format(timestamp=timestamp))
 
     print(f"✅ Created initial migration at: {migration_path}")
     print("\nTo apply the migration, run:")

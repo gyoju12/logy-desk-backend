@@ -20,7 +20,11 @@ def ensure_database():
     }
 
     # Create base URL without database name
-    base_url = f"postgresql://{db_config['user']}:{db_config['password']}@{db_config['host']}:{db_config['port']}"
+    base_url = (
+        f"postgresql://{db_config['user']}:"
+        f"{db_config['password']}@"
+        f"{db_config['host']}:{db_config['port']}"
+    )
     db_url = f"{base_url}/{db_config['db']}"
 
     print(f"Checking database: {db_url}")
