@@ -33,6 +33,7 @@ class LLMClient:
         self._client = None
         self._http_client = None
         self._current_model = settings.OPENROUTER_MODEL
+        self._tried_models: set[str] = set()  # Track models that have been tried
         # Multiple fallback models in order of preference
         self._fallback_models = [
             "google/gemma-3-27b-it:free",
@@ -190,10 +191,6 @@ class LLMClient:
 
         # Try the current model first
         last_error = None
-
-        # Keep track of models we've already tried to prevent infinite loops
-        if not hasattr(self, "_tried_models"):
-            self._tried_models = set()
 
         # Get the current model and fallback models
         models_to_try = [current_model]
