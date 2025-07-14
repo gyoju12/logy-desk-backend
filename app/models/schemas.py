@@ -1,6 +1,6 @@
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional
-from uuid import UUID
+from typing import Any, Dict, List, Literal, Optional, TypeVar
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, field_serializer, field_validator
 
@@ -56,21 +56,22 @@ class Agent(AgentBase):
     agent_type: Any = Field(..., description="Type of agent (MAIN or SUB)")
 
     @field_serializer("id")
-    def serialize_id(self, id: UUID, _info) -> str:
+    def serialize_id(self, id: UUID, _info: Any) -> str:
         return str(id)
 
     @field_serializer("agent_type")
-    def serialize_agent_type(self, agent_type: Any, _info) -> str:
+    def serialize_agent_type(self, agent_type: Any, _info: Any) -> str:
         # Convert enum to string value
         if hasattr(agent_type, "value"):
-            return agent_type.value
+            return str(agent_type.value) # Ensure string conversion
         # Ensure string is uppercase for consistency
         if isinstance(agent_type, str):
             return agent_type.upper()
         return str(agent_type)
 
     @field_validator("agent_type", mode="before")
-    def validate_agent_type(cls, v):
+    @classmethod
+    def validate_agent_type(cls, v: Any) -> Any:
         # Convert string to uppercase for consistency
         if isinstance(v, str):
             v = v.upper()
@@ -115,7 +116,7 @@ class Document(DocumentBase):
     )
 
     @field_serializer("id")
-    def serialize_id(self, id: UUID, _info) -> str:
+    def serialize_id(self, id: UUID, _info: Any) -> str:
         return str(id)
 
     class Config:
@@ -160,7 +161,7 @@ class ChatMessage(ChatMessageBase):
     )
 
     @field_serializer("id", "session_id")
-    def serialize_uuids(self, v: UUID, _info) -> str:
+    def serialize_uuids(self, v: UUID, _info: Any) -> str:
         return str(v)
 
     class Config:
@@ -196,7 +197,7 @@ class ChatSession(ChatSessionBase):
     updated_at: datetime = Field(..., description="Last update timestamp")
 
     @field_serializer("id")
-    def serialize_id(self, id: UUID, _info) -> str:
+    def serialize_id(self, id: UUID, _info: Any) -> str:
         return str(id)
 
     class Config:
@@ -216,7 +217,7 @@ class ChatSessionDetail(BaseModel):
     )
 
     @field_serializer("id")
-    def serialize_id(self, id: UUID, _info) -> str:
+    def serialize_id(self, id: UUID, _info: Any) -> str:
         return str(id)
 
     class Config:
@@ -249,11 +250,13 @@ class ChatResponse(BaseModel):
     )
 
 
-# Response models for API endpoints
+# Generic type variable for ListResponse
+T = TypeVar("T", bound=BaseModel)
+
 class ListResponse(BaseModel):
     """Generic list response wrapper."""
 
-    items: List[BaseModel]
+    items: List[Any] # Changed to Any for now, consider making ListResponse generic
 
 
 class AgentListResponse(ListResponse):

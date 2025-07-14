@@ -6,7 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy_utils import create_database, database_exists
 
 
-def ensure_database():
+def ensure_database() -> None:
     # Load environment variables
     load_dotenv()
 

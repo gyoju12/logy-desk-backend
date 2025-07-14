@@ -2,7 +2,7 @@ from datetime import datetime
 from pathlib import Path
 
 
-def create_initial_migration():
+def create_initial_migration() -> None:
     """Create an initial database migration file."""
     # Get the migrations/versions directory
     migrations_dir = Path(__file__).parent / "migrations"

@@ -1,12 +1,11 @@
-"""LLM client module for handling interactions with different LLM providers."""
-
 import asyncio
 import json
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple, Any
 
 import httpx
 from openai import AsyncOpenAI
+from openai.types.chat import ChatCompletionMessageParam
 
 from app.core.config import settings
 
@@ -28,24 +27,24 @@ logger.setLevel(logging.DEBUG)  # Ensure debug level is set for this logger
 class LLMClient:
     """Client for interacting with different LLM providers."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.provider = settings.LLM_PROVIDER.lower()
-        self._client = None
-        self._http_client = None
-        self._current_model = settings.OPENROUTER_MODEL
+        self._client: Optional[AsyncOpenAI] = None
+        self._http_client: Optional[httpx.AsyncClient] = None
+        self._current_model: str = settings.OPENROUTER_MODEL
         self._tried_models: set[str] = set()  # Track models that have been tried
         # Multiple fallback models in order of preference
-        self._fallback_models = [
+        self._fallback_models: List[str] = [
             "google/gemma-3-27b-it:free",
             "google/gemini-2.5-flash",
             "anthropic/claude-3.5-haiku",
             "openai/gpt-4.1-mini",
             "openai/gpt-4o-mini",
         ]
-        self._max_retries = 3
-        self._retry_delay = 1.0  # seconds
+        self._max_retries: int = 3
+        self._retry_delay: float = 1.0  # seconds
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         """Initialize the LLM client based on the configured provider."""
         logger.debug("Initializing LLM client...")
 
@@ -121,11 +120,14 @@ class LLMClient:
     async def _call_llm_api(
         self,
         model: str,
-        messages: List[Dict[str, str]],
+        messages: List[ChatCompletionMessageParam], # Changed type hint
         temperature: float,
         max_tokens: int,
     ) -> str:
         """Internal method to call the LLM API with a specific model."""
+        if self._client is None:
+            raise ValueError("LLM client not initialized. Call initialize() first.")
+
         try:
             response = await self._client.chat.completions.create(
                 model=model,
@@ -150,7 +152,7 @@ class LLMClient:
 
     def _sanitize_parameters(
         self, temperature: float, max_tokens: int
-    ) -> tuple[float, int]:
+    ) -> Tuple[float, int]:
         """Ensure parameters are within valid ranges."""
         return max(0.0, min(2.0, temperature)), min(max_tokens, 2000)
 
@@ -172,7 +174,7 @@ class LLMClient:
         except Exception as e:
             logger.warning(f"Could not log message preview: {str(e)}")
 
-    def _get_models_to_try(self, current_model: str) -> list[str]:
+    def _get_models_to_try(self, current_model: str) -> List[str]:
         """Get the list of models to try, including fallbacks."""
         models_to_try = [current_model]
         if hasattr(self, "_fallback_models"):
@@ -184,7 +186,7 @@ class LLMClient:
     async def _try_model_with_retries(
         self,
         model: str,
-        messages: List[Dict[str, str]],
+        messages: List[ChatCompletionMessageParam], # Changed type hint
         temperature: float,
         max_tokens: int,
     ) -> Optional[str]:
@@ -264,7 +266,7 @@ class LLMClient:
 
         # Try each model until we get a successful response
         models_to_try = self._get_models_to_try(current_model)
-        last_error = None
+        last_error: Optional[Exception] = None # Added type hint
 
         for model in models_to_try:
             if model in self._tried_models:
@@ -295,7 +297,7 @@ class LLMClient:
         logger.error(error_msg)
         return "죄송합니다. AI 응답을 생성하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
 
-    async def close(self):
+    async def close(self) -> None:
         """Close the client connection."""
         if self._http_client is not None:
             await self._http_client.aclose()

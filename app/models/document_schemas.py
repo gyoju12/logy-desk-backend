@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Any
 
 from pydantic import BaseModel, Field, validator
 
@@ -17,13 +17,13 @@ class DocumentCreate(DocumentBase):
     """Schema for creating a new document."""
 
     @validator("title")
-    def title_must_not_be_empty(cls, v):
+    def title_must_not_be_empty(cls, v: str) -> str:
         if not v.strip():
             raise ValueError("Title cannot be empty")
         return v.strip()
 
     @validator("filename")
-    def filename_must_not_be_empty(cls, v):
+    def filename_must_not_be_empty(cls, v: str) -> str:
         if not v.strip():
             raise ValueError("Filename cannot be empty")
         return v.strip()

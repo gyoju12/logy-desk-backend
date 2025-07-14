@@ -5,7 +5,7 @@ from sqlalchemy import text
 from app.db.base import async_engine
 
 
-async def check_database_schema():
+async def check_database_schema() -> None:
     print("🔍 Checking database schema...")
 
     async with async_engine.connect() as conn:

@@ -1,2 +1,2 @@
-def test_minimal():
+def test_minimal() -> None:
     assert True

@@ -1,7 +1,7 @@
 import os
 from typing import List, Optional
 
-from pydantic import PostgresDsn, field_validator
+from pydantic import PostgresDsn, field_validator, ValidationInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -45,19 +45,22 @@ class Settings(BaseSettings):
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = ["*"]
 
+    # Token expiration for security
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30  # Default to 30 minutes
+
     @field_validator("DATABASE_URI", mode="before")
     @classmethod
-    def assemble_db_connection(cls, v: Optional[str], info) -> str:
+    def assemble_db_connection(cls, v: Optional[str], info: ValidationInfo) -> str:
         if isinstance(v, str):
             return v
 
         values = info.data
         return (
-            f"postgresql+asyncpg://"
-            f"{values.get('POSTGRES_USER')}:"
-            f"{values.get('POSTGRES_PASSWORD')}@"
-            f"{values.get('POSTGRES_SERVER')}:"
-            f"{values.get('POSTGRES_PORT')}/"
+            f"postgresql+asyncpg://"\
+            f"{values.get('POSTGRES_USER')}:"\
+            f"{values.get('POSTGRES_PASSWORD')}@"\
+            f"{values.get('POSTGRES_SERVER')}:"\
+            f"{values.get('POSTGRES_PORT')}/"\
             f"{values.get('POSTGRES_DB')}"
         )
 

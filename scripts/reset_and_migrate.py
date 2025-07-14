@@ -11,7 +11,7 @@ from alembic.config import Config
 load_dotenv()
 
 
-def reset_and_migrate():
+def reset_and_migrate() -> None:
     # Get database URL from environment
     db_url = os.getenv("DATABASE_URL")
 

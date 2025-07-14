@@ -13,7 +13,7 @@ if not os.path.exists(TEST_FILE):
         f.write("This is a test document for the Logy-Desk API.")
 
 
-async def test_upload():
+async def test_upload() -> None:
     # First, log in to get a token
     async with httpx.AsyncClient() as client:
         # Replace with your test user credentials

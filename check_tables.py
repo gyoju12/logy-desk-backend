@@ -16,7 +16,7 @@ except ImportError as e:
     sys.exit(1)
 
 
-async def check_tables():
+async def check_tables() -> None:
     print("🔍 Checking database tables...")
 
     try:

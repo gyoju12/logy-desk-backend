@@ -19,7 +19,7 @@ except ImportError as e:
     raise
 
 
-async def check_db_connection():
+async def check_db_connection() -> None:
     print("🔍 Checking database connection...")
     print(f"📌 Current working directory: {os.getcwd()}")
     print(f"📌 Python path: {sys.path}")
