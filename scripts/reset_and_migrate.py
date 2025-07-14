@@ -22,9 +22,6 @@ def reset_and_migrate():
 
     print(f"Database URL: {db_url}")
 
-    # Create SQLAlchemy engine
-    engine = create_engine(db_url)
-
     # Drop and recreate the database
     if database_exists(db_url):
         print("Dropping existing database...")
