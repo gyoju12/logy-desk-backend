@@ -27,12 +27,16 @@ async def create_agent(agent: schemas.AgentCreate, db: AsyncSession = Depends(ge
 
     db_agent = await crud_agent.agent.get_by_name(db, name=agent.name)
     if db_agent:
-        raise HTTPException(status_code=400, detail="이미 존재하는 에이전트 이름입니다.")
+        raise HTTPException(
+            status_code=400, detail="이미 존재하는 에이전트 이름입니다."
+        )
     return await crud_agent.agent.create(db, obj_in=agent_data)
 
 
 @router.get("", response_model=List[schemas.Agent])
-async def list_agents(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
+async def list_agents(
+    skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)
+):
     """
     모든 에이전트 목록을 조회합니다 (개발용 - 인증 없음).
 

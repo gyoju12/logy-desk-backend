@@ -109,29 +109,30 @@ python_classes = "Test*"
 addopts = "-v --cov=app --cov-report=term-missing"
 
 [tool.black]
-line-length = 100
-target-version = ["py39"]
+line-length = 88
+target-version = ['py39']
 include = '\.pyi?$'
-exclude = '''
+extend-exclude = '''
 /(
-  /( \
-    \\.git| \
-    \\.mypy_cache| \
-    \\.tox| \
-    \\.venv| \
-    _build| \
-    build| \
-    dist \
-  )/ \
-  | venv/ \
-  | alembic/versions/ \
+    \.git
+  | \.mypy_cache
+  | \.pytest_cache
+  | \.venv
+  | venv
+  | uploads
+  | __pypackages__
+  | _build
+  | build
+  | dist
+  | node_modules
+  | alembic/versions
   | app/_version\.py
-)
+)/
 '''
 
 [tool.isort]
 profile = "black"
-line_length = 100
+line_length = 88
 multi_line_output = 3
 include_trailing_comma = true
 force_grid_wrap = 0
@@ -152,6 +153,12 @@ strict_optional = true
 
 [tool.setuptools_scm]
 write_to = "app/_version.py"
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = "E203, E501, W503"
+extend-exclude = "venv, .git, __pycache__, .mypy_cache, .pytest_cache, _build, build, dist, uploads"
+per-file-ignores = "__init__.py: F401"
 
 [tool.mypy.overrides]
 module = [

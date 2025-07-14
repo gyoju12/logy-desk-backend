@@ -56,12 +56,16 @@ class JSONType(TypeDecorator):
         else:
             return dialect.type_descriptor(Text())
 
-    def process_bind_param(self, value: Optional[Dict[str, Any]], dialect) -> Optional[str]:
+    def process_bind_param(
+        self, value: Optional[Dict[str, Any]], dialect
+    ) -> Optional[str]:
         if value is None:
             return None
         return json.dumps(value)
 
-    def process_result_value(self, value: Optional[str], dialect) -> Optional[Dict[str, Any]]:
+    def process_result_value(
+        self, value: Optional[str], dialect
+    ) -> Optional[Dict[str, Any]]:
         if value is None:
             return None
         return json.loads(value)

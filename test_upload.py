@@ -52,7 +52,9 @@ async def test_upload():
                 print("Response:", upload_response.json())
 
                 # List all documents
-                list_response = await client.get(f"{BASE_URL}/documents", headers=headers)
+                list_response = await client.get(
+                    f"{BASE_URL}/documents", headers=headers
+                )
                 list_response.raise_for_status()
                 print("\nDocuments:", list_response.json())
 

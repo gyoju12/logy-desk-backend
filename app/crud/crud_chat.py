@@ -27,7 +27,9 @@ class CRUDChatSession(CRUDBase[ChatSession, ChatSessionCreate, ChatSessionUpdate
         )
         return result.scalars().all()
 
-    async def get_by_title(self, db: AsyncSession, *, title: str) -> Optional[ChatSession]:
+    async def get_by_title(
+        self, db: AsyncSession, *, title: str
+    ) -> Optional[ChatSession]:
         result = await db.execute(
             select(self.model).where(self.model.title == title).limit(1)
         )

@@ -39,7 +39,9 @@ def setup_database():
 @pytest.fixture(scope="module")
 def client(setup_database):
     # Override the get_db dependency
-    app.dependency_overrides[app.dependency_overrides[SQLALCHEMY_DATABASE_URL]] = override_get_db
+    app.dependency_overrides[app.dependency_overrides[SQLALCHEMY_DATABASE_URL]] = (
+        override_get_db
+    )
     with TestClient(app) as c:
         yield c
     # Clean up

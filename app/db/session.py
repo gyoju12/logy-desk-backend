@@ -50,7 +50,6 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             raise
 
 
-
 def get_sync_session():
     engine = create_engine(
         str(settings.DATABASE_URI).replace("+asyncpg", ""),
@@ -72,7 +71,6 @@ async def init_db() -> None:
 
     # Create default admin user if not exists
     try:
-        from app.core.security import get_password_hash
         from app.crud.crud_user import create_user, get_user_by_email
         from app.schemas.user import UserCreate
 

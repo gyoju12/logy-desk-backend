@@ -34,22 +34,98 @@ except Exception as e:
     raise RuntimeError(f"Failed to initialize upload directory: {str(e)}")
 
 
+async def _save_uploaded_file(file: UploadFile, upload_path: Path) -> tuple[bytes, Path]:
+    """Save the uploaded file to disk and return its contents and path."""
+    file_extension = os.path.splitext(file.filename or "")[1]
+    filename = f"{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}{file_extension}"
+    file_path = upload_path / filename
+    
+    logger.info(f"Starting file upload: {file.filename} (saving as {filename})")
+    
+    try:
+        contents = await file.read()
+        logger.info(f"Read {len(contents)} bytes from uploaded file")
+        
+        with open(file_path, "wb") as buffer:
+            buffer.write(contents)
+        logger.info(f"File saved to {file_path}")
+        
+        return contents, file_path
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise
+        error_type = "reading" if "read" in str(e).lower() else "saving"
+        error_msg = f"Failed to {error_type} uploaded file: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR if error_type == "saving" else status.HTTP_400_BAD_REQUEST,
+            detail=error_msg
+        )
+
+async def _save_document_to_db(
+    db: AsyncSession, 
+    user_id: str, 
+    file: UploadFile, 
+    file_path: Path, 
+    file_size: int
+) -> dict:
+    """Save document metadata to the database and return the created document."""
+    document_data = {
+        "user_id": user_id,
+        "file_name": file.filename,
+        "file_path": str(file_path),
+        "file_size": file_size,
+        "file_type": file.content_type,
+        "status": "processing",
+        "metadata": {"original_filename": file.filename},
+    }
+    
+    logger.debug(f"Document metadata: {document_data}")
+    logger.info("Saving document to database...")
+    
+    try:
+        db_document = await crud_document.document.create(db=db, obj_in=document_data)
+        await db.commit()
+        await db.refresh(db_document)
+        logger.info(f"Document saved to database with ID: {db_document.id}")
+        return db_document
+    except Exception as e:
+        await db.rollback()
+        error_msg = f"Database error while saving document: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail=error_msg
+        )
+
+def _cleanup_file(file_path: Path) -> None:
+    """Clean up the uploaded file if it exists."""
+    if file_path and file_path.exists():
+        try:
+            file_path.unlink()
+            logger.info(f"Cleaned up file: {file_path}")
+        except Exception as cleanup_error:
+            logger.error(
+                f"Error during file cleanup: {str(cleanup_error)}"
+            )
+
 @router.post("/upload", status_code=status.HTTP_200_OK)
-async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+async def upload_document(
+    file: UploadFile = File(...), db: AsyncSession = Depends(get_db)
+):
     """
     Upload a document to the knowledge base (Development only - no auth).
 
     - **file**: The file to upload (required)
     """
-    # For MVP, we'll just use the default user ID without checking
-    # In a production app, we would verify the user exists
-    user_id = DEFAULT_USER_ID
-
+    user_id = DEFAULT_USER_ID  # In production, verify the user exists
     logger.info(f"Starting document upload for user {user_id}")
 
     if not file:
         logger.error("No file provided in the request")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No file provided")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="No file provided"
+        )
 
     # Ensure upload directory exists
     upload_path = Path(UPLOAD_DIR)
@@ -59,97 +135,51 @@ async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depen
     except Exception as e:
         error_msg = f"Failed to create upload directory: {str(e)}"
         logger.error(error_msg, exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg
+        )
 
-    # Generate file path
-    file_extension = os.path.splitext(file.filename or "")[1]
-    filename = f"{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}{file_extension}"
-    file_path = upload_path / filename
-
+    file_path = None
     try:
-        logger.info(f"Starting file upload: {file.filename} (saving as {filename})")
-
-        # Read file content
-        try:
-            contents = await file.read()
-            logger.info(f"Read {len(contents)} bytes from uploaded file")
-        except Exception as e:
-            error_msg = f"Failed to read uploaded file: {str(e)}"
-            logger.error(error_msg, exc_info=True)
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
-
-        # Save file
-        try:
-            with open(file_path, "wb") as buffer:
-                buffer.write(contents)
-            logger.info(f"File saved to {file_path}")
-        except Exception as e:
-            error_msg = f"Failed to save file to disk: {str(e)}"
-            logger.error(error_msg, exc_info=True)
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg)
-
-        # Get file size
-        file_size = len(contents)
-
-        # Create document record in database
-        document_data = {
-            "user_id": user_id,
-            "file_name": file.filename,
-            "file_path": str(file_path),
-            "file_size": file_size,
-            "file_type": file.content_type,
-            "status": "processing",
-            "metadata": {"original_filename": file.filename},
+        # Save the uploaded file and get its contents
+        contents, file_path = await _save_uploaded_file(file, upload_path)
+        
+        # Save document metadata to database
+        db_document = await _save_document_to_db(
+            db=db,
+            user_id=user_id,
+            file=file,
+            file_path=file_path,
+            file_size=len(contents)
+        )
+        
+        # Prepare success response
+        response_data = {
+            "message": "File uploaded and processed successfully",
+            "filename": file.filename,
+            "document_id": str(db_document.id),
         }
-
-        logger.debug(f"Document metadata: {document_data}")
-
-        # Save to database
-        db_document = None  # Initialize variable
-        try:
-            logger.info("Saving document to database...")
-            # Use crud_document.document instead of crud_document.document_crud
-            db_document = await crud_document.document.create(db=db, obj_in=document_data)
-            await db.commit()
-            await db.refresh(db_document)
-            logger.info(f"Document saved to database with ID: {db_document.id}")
-
-            # Prepare response according to API spec
-            response_data = {
-                "message": "File uploaded and processed successfully",
-                "filename": file.filename,
-                "document_id": str(db_document.id),
-            }
-
-            logger.info(f"Upload completed successfully for document ID: {db_document.id}")
-            return response_data
-
-        except Exception as e:
-            await db.rollback()
-            error_msg = f"Database error while saving document: {str(e)}"
-            logger.error(error_msg, exc_info=True)
-            # Clean up the uploaded file if database operation failed
-            if file_path and file_path.exists():
-                try:
-                    file_path.unlink()
-                    logger.info(f"Cleaned up file after database error: {file_path}")
-                except Exception as cleanup_error:
-                    logger.error(
-                        f"Error during file cleanup after database error: {str(cleanup_error)}"
-                    )
-
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg)
-
+        
+        logger.info(f"Upload completed successfully for document ID: {db_document.id}")
+        return response_data
+        
     except HTTPException:
         # Re-raise HTTP exceptions
         raise
-
+        
     except Exception as e:
         error_msg = f"Unexpected error during document upload: {str(e)}"
         logger.error(error_msg, exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg)
-
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail=error_msg
+        )
+        
     finally:
+        # Clean up if there was an error after file was saved but before DB commit
+        if file_path and 'db_document' not in locals() and file_path.exists():
+            _cleanup_file(file_path)
+            
         # Ensure the uploaded file is properly closed
         if not file.file.closed:
             await file.close()
@@ -157,7 +187,9 @@ async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depen
 
 
 @router.get("", response_model=dict)
-async def list_documents(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
+async def list_documents(
+    skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)
+):
     """
     Get a list of all uploaded documents.
 
@@ -168,7 +200,9 @@ async def list_documents(skip: int = 0, limit: int = 100, db: AsyncSession = Dep
         logger.info(f"Fetching documents (skip={skip}, limit={limit})")
 
         # Get documents from the database using the correct CRUD reference
-        documents = await crud_document.document.get_multi(db=db, skip=skip, limit=limit)
+        documents = await crud_document.document.get_multi(
+            db=db, skip=skip, limit=limit
+        )
 
         # Format the response according to the API spec
         formatted_documents = [
@@ -178,7 +212,8 @@ async def list_documents(skip: int = 0, limit: int = 100, db: AsyncSession = Dep
                 "file_size": doc.file_size,
                 "file_type": doc.file_type,
                 "status": doc.status,
-                "uploaded_at": doc.created_at.isoformat() + "Z",  # ISO 8601 format with Z for UTC
+                "uploaded_at": doc.created_at.isoformat()
+                + "Z",  # ISO 8601 format with Z for UTC
             }
             for doc in documents
         ]
@@ -202,7 +237,9 @@ async def list_documents(skip: int = 0, limit: int = 100, db: AsyncSession = Dep
     except Exception as e:
         error_msg = f"Error listing documents: {str(e)}"
         logger.error(error_msg, exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg
+        )
 
 
 @router.get("/{document_id}", response_model=dict)
@@ -223,7 +260,9 @@ async def get_document(document_id: str, db: AsyncSession = Depends(get_db)):
         except ValueError:
             error_msg = f"Invalid document ID format: {document_id}"
             logger.warning(error_msg)
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg
+            )
 
         # Get the document from the database using the correct CRUD reference
         document = await crud_document.document.get(db=db, id=document_id)
@@ -247,7 +286,9 @@ async def get_document(document_id: str, db: AsyncSession = Depends(get_db)):
             "status": document.status,
             "uploaded_at": document.created_at.isoformat() + "Z",
             # Convert metadata to dict if it's not already
-            "metadata": (dict(document.metadata) if hasattr(document.metadata, "items") else {}),
+            "metadata": (
+                dict(document.metadata) if hasattr(document.metadata, "items") else {}
+            ),
         }
 
         logger.info(f"Successfully retrieved document: {document_id}")
@@ -260,7 +301,9 @@ async def get_document(document_id: str, db: AsyncSession = Depends(get_db)):
     except Exception as e:
         error_msg = f"Error retrieving document {document_id}: {str(e)}"
         logger.error(error_msg, exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg
+        )
 
 
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -282,7 +325,9 @@ async def delete_document(document_id: str, db: AsyncSession = Depends(get_db)):
         except ValueError:
             error_msg = f"Invalid document ID format: {document_id}"
             logger.warning(error_msg)
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg
+            )
 
         # Get the document from the database first
         db_document = await crud_document.document.get(db=db, id=document_id)
@@ -321,4 +366,6 @@ async def delete_document(document_id: str, db: AsyncSession = Depends(get_db)):
         await db.rollback()
         error_msg = f"Error deleting document {document_id}: {str(e)}"
         logger.error(error_msg, exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg
+        )

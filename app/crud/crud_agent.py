@@ -18,7 +18,10 @@ class CRUDAgent(CRUDBase[Agent, AgentCreate, AgentUpdate]):
         self, db: AsyncSession, *, agent_type: str, skip: int = 0, limit: int = 100
     ) -> List[Agent]:
         result = await db.execute(
-            select(self.model).filter(self.model.agent_type == agent_type).offset(skip).limit(limit)
+            select(self.model)
+            .filter(self.model.agent_type == agent_type)
+            .offset(skip)
+            .limit(limit)
         )
         return result.scalars().all()
 

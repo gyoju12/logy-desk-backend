@@ -11,5 +11,7 @@ api_router = APIRouter()
 # Include all API routes with their respective prefixes and tags
 api_router.include_router(agents_router, prefix="/agents", tags=["Agents"])
 api_router.include_router(documents_router, prefix="/documents", tags=["Documents"])
-api_router.include_router(chat_sessions_router, prefix="/chat_sessions", tags=["Chat Sessions"])
+api_router.include_router(
+    chat_sessions_router, prefix="/chat_sessions", tags=["Chat Sessions"]
+)
 api_router.include_router(chat_router, prefix="/chat", tags=["Chat"])

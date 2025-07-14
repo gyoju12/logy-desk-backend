@@ -64,8 +64,15 @@ def main():
 
     # Test connection first
     if not test_connection():
-        print(("\nPlease check your database credentials and make sure " "PostgreSQL is running."))
-        print("You may need to create a .env file with the correct database credentials.")
+        print(
+            (
+                "\nPlease check your database credentials and make sure "
+                "PostgreSQL is running."
+            )
+        )
+        print(
+            "You may need to create a .env file with the correct database credentials."
+        )
         return
 
     # Create tables

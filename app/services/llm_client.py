@@ -3,7 +3,7 @@
 import asyncio
 import json
 import logging
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import httpx
 from openai import AsyncOpenAI
@@ -56,11 +56,14 @@ class LLMClient:
         try:
             if self.provider == "openrouter":
                 logger.info(
-                    "Initializing OpenRouter client with model: " f"{settings.OPENROUTER_MODEL}"
+                    "Initializing OpenRouter client with model: "
+                    f"{settings.OPENROUTER_MODEL}"
                 )
 
                 if not settings.OPENROUTER_API_KEY:
-                    error_msg = "OpenRouter API key is required when using OpenRouter provider"
+                    error_msg = (
+                        "OpenRouter API key is required when using OpenRouter provider"
+                    )
                     logger.error(error_msg)
                     raise ValueError(error_msg)
 
@@ -89,7 +92,9 @@ class LLMClient:
                 )
 
             else:  # Default to OpenAI
-                logger.info(f"Initializing OpenAI client with model: {settings.OPENAI_MODEL}")
+                logger.info(
+                    f"Initializing OpenAI client with model: {settings.OPENAI_MODEL}"
+                )
 
                 if not settings.OPENAI_API_KEY:
                     error_msg = "OpenAI API key is required when using OpenAI provider"
@@ -99,7 +104,8 @@ class LLMClient:
                 logger.debug("Initializing standard OpenAI client")
                 self._client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
                 logger.info(
-                    "Successfully initialized OpenAI client with model: " f"{settings.OPENAI_MODEL}"
+                    "Successfully initialized OpenAI client with model: "
+                    f"{settings.OPENAI_MODEL}"
                 )
 
         except Exception as e:
@@ -137,6 +143,88 @@ class LLMClient:
             logger.warning(f"API call to {model} failed: {str(e)}")
             raise
 
+    def _validate_messages(self, messages: List[Dict[str, str]]) -> None:
+        """Validate the input messages."""
+        if not messages or not isinstance(messages, list):
+            raise ValueError("Messages must be a non-empty list")
+
+    def _sanitize_parameters(self, temperature: float, max_tokens: int) -> tuple[float, int]:
+        """Ensure parameters are within valid ranges."""
+        return max(0.0, min(2.0, temperature)), min(max_tokens, 2000)
+
+    def _log_request(self, messages: List[Dict[str, str]], model: str) -> None:
+        """Log the request details."""
+        logger.info(f"Generating chat response with {self.provider} model: {model}")
+        try:
+            messages_preview = [
+                {
+                    k: (v[:100] + "..." if k == "content" and len(str(v)) > 100 else v)
+                    for k, v in msg.items()
+                }
+                for msg in messages
+            ]
+            logger.debug(
+                "Sending messages to LLM: "
+                f"{json.dumps(messages_preview, ensure_ascii=False, indent=2)}"
+            )
+        except Exception as e:
+            logger.warning(f"Could not log message preview: {str(e)}")
+
+    def _get_models_to_try(self, current_model: str) -> list[str]:
+        """Get the list of models to try, including fallbacks."""
+        models_to_try = [current_model]
+        if hasattr(self, "_fallback_models"):
+            models_to_try.extend([m for m in self._fallback_models if m not in self._tried_models])
+        return models_to_try
+
+    async def _try_model_with_retries(
+        self,
+        model: str,
+        messages: List[Dict[str, str]],
+        temperature: float,
+        max_tokens: int
+    ) -> Optional[str]:
+        """Attempt to get a response from a specific model with retries."""
+        self._tried_models.add(model)
+        self._current_model = model
+        logger.info(f"Trying model: {model}")
+
+        for attempt in range(self._max_retries):
+            try:
+                response_text = await self._call_llm_api(
+                    model=model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+                self._log_successful_response(response_text, model)
+                return response_text
+
+            except Exception as e:
+                if not await self._handle_retry(attempt, model, e):
+                    break
+        return None
+
+    async def _handle_retry(self, attempt: int, model: str, error: Exception) -> bool:
+        """Handle retry logic for failed attempts."""
+        if attempt < self._max_retries - 1:
+            retry_delay = self._retry_delay * (2 ** attempt)
+            logger.warning(
+                f"Attempt {attempt + 1} failed for model {model}: "
+                f"{str(error)}. Retrying in {retry_delay:.1f}s..."
+            )
+            await asyncio.sleep(retry_delay)
+            return True
+
+        logger.error(f"All {self._max_retries} attempts failed for model {model}")
+        return False
+
+    def _log_successful_response(self, response_text: str, model: str) -> None:
+        """Log successful response details."""
+        response_preview = response_text[:200] + ("..." if len(response_text) > 200 else "")
+        logger.debug(f"Received LLM response: {response_preview}")
+        logger.info(f"Successfully generated chat response from {model}")
+
     async def generate_chat_response(
         self,
         messages: List[Dict[str, str]],
@@ -162,79 +250,33 @@ class LLMClient:
         if not self._client:
             await self.initialize()
 
-        # Validate input
-        if not messages or not isinstance(messages, list):
-            raise ValueError("Messages must be a non-empty list")
-
-        # Ensure parameters are within valid ranges
-        temperature = max(0.0, min(2.0, temperature))
-        max_tokens = min(max_tokens, 2000)
+        self._validate_messages(messages)
+        temperature, max_tokens = self._sanitize_parameters(temperature, max_tokens)
 
         current_model = self.get_model_name()
+        self._log_request(messages, current_model)
 
-        # Log the request
-        logger.info(f"Generating chat response with {self.provider} model: {current_model}")
-        try:
-            messages_preview = [
-                {
-                    k: (v[:100] + "..." if k == "content" and len(str(v)) > 100 else v)
-                    for k, v in msg.items()
-                }
-                for msg in messages
-            ]
-            logger.debug(
-                "Sending messages to LLM: "
-                f"{json.dumps(messages_preview, ensure_ascii=False, indent=2)}"
-            )
-        except Exception as e:
-            logger.warning(f"Could not log message preview: {str(e)}")
-
-        # Try the current model first
+        # Try each model until we get a successful response
+        models_to_try = self._get_models_to_try(current_model)
         last_error = None
-
-        # Get the current model and fallback models
-        models_to_try = [current_model]
-        if hasattr(self, "_fallback_models"):
-            models_to_try.extend([m for m in self._fallback_models if m not in self._tried_models])
 
         for model in models_to_try:
             if model in self._tried_models:
                 continue
 
-            self._tried_models.add(model)
-            self._current_model = model
-            logger.info(f"Trying model: {model}")
+            try:
+                response = await self._try_model_with_retries(
+                    model=model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+                if response is not None:
+                    return response
 
-            # Retry logic for each model
-            for attempt in range(self._max_retries):
-                try:
-                    response_text = await self._call_llm_api(
-                        model=model,
-                        messages=messages,
-                        temperature=temperature,
-                        max_tokens=max_tokens,
-                    )
-
-                    # Log success
-                    response_preview = response_text[:200] + (
-                        "..." if len(response_text) > 200 else ""
-                    )
-                    logger.debug(f"Received LLM response: {response_preview}")
-                    logger.info(f"Successfully generated chat response from {model}")
-
-                    return response_text
-
-                except Exception as e:
-                    last_error = e
-                    if attempt < self._max_retries - 1:
-                        retry_delay = self._retry_delay * (2**attempt)
-                        logger.warning(
-                            f"Attempt {attempt + 1} failed for model {model}: "
-                            f"{str(e)}. Retrying in {retry_delay:.1f}s..."
-                        )
-                        await asyncio.sleep(retry_delay)
-                    else:
-                        logger.error(f"All {self._max_retries} attempts failed for model {model}")
+            except Exception as e:
+                last_error = e
+                continue
 
         # If we get here, all models and retries failed
         error_msg = (
