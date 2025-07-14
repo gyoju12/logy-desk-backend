@@ -7,8 +7,9 @@ from pathlib import Path
 project_root = str(Path(__file__).resolve().parent.parent)
 sys.path.append(project_root)
 
-from app.db.session import async_session_maker
 from sqlalchemy import text
+
+from app.db.session import async_session_maker
 
 
 async def check_default_user():
