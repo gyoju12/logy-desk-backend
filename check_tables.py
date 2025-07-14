@@ -9,6 +9,7 @@ sys.path.insert(0, project_root)
 # Now import local modules
 try:
     from sqlalchemy import text
+
     from app.db.base import async_engine
 except ImportError as e:
     print(f"Error importing modules: {e}")
