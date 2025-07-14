@@ -1,9 +1,7 @@
-from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.orm import selectinload
 
 from app.models.models import ChatMessage, ChatSession
 from app.models.schemas import (
@@ -30,7 +28,9 @@ class CRUDChatSession(CRUDBase[ChatSession, ChatSessionCreate, ChatSessionUpdate
         return result.scalars().all()
 
     async def get_by_title(self, db: AsyncSession, *, title: str) -> Optional[ChatSession]:
-        result = await db.execute(select(self.model).where(self.model.title == title))
+        result = await db.execute(
+            select(self.model).where(self.model.title == title).limit(1)
+        )
         return result.scalars().first()
 
 

@@ -1,10 +1,9 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import List, Optional
 
-from sqlalchemy import or_
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
 
-from app.models.db_models import Document, User
+from app.models.db_models import Document
 from app.models.schemas import DocumentCreate, DocumentUpdate
 
 from .base import CRUDBase

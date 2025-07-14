@@ -1,8 +1,6 @@
-import os
 from contextlib import asynccontextmanager
-from typing import List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi

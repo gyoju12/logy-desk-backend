@@ -1,8 +1,9 @@
 import logging
 from typing import AsyncGenerator
 
+from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import sessionmaker as create_sessionmaker
 from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
@@ -49,16 +50,13 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             raise
 
 
-# For synchronous operations (e.g., in scripts)
-def get_sync_session():
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
 
-    sync_engine = create_engine(
-        DATABASE_URL.replace("+asyncpg", ""),
+def get_sync_session():
+    engine = create_engine(
+        str(settings.DATABASE_URI).replace("+asyncpg", ""),
         pool_pre_ping=True,
     )
-    return sessionmaker(autocommit=False, autoflush=False, bind=sync_engine)()
+    return create_sessionmaker(autocommit=False, autoflush=False, bind=engine)()
 
 
 # Initialize database
@@ -68,6 +66,7 @@ async def init_db() -> None:
     from app.db.base import Base
     from app.models.db_models import User  # noqa: F401
 
+    # Create tables
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 

@@ -78,7 +78,7 @@ async def create_chat_message(
         except Exception as e:
             # AI 응답 생성 중 오류 발생 시 오류 메시지 반환 (비동기 호출)
             error_message = f"AI 응답 생성 중 오류가 발생했습니다: {str(e)}"
-            error_msg = await crud_chat.chat_message.create_with_session(
+            await crud_chat.chat_message.create_with_session(
                 db,
                 obj_in=schemas.ChatMessageCreate(
                     role="system",

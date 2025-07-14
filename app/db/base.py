@@ -1,3 +1,4 @@
+import logging
 from typing import AsyncGenerator, Generator
 
 from sqlalchemy import create_engine

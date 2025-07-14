@@ -1,14 +1,8 @@
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional, Union
-from uuid import UUID, uuid4
+from typing import Any, Dict, List, Literal, Optional
+from uuid import UUID
 
-from pydantic import (
-    BaseModel,
-    Field,
-    field_serializer,
-    field_validator,
-    model_serializer,
-)
+from pydantic import BaseModel, Field, field_serializer, field_validator
 
 # Common types
 AgentType = Literal["MAIN", "SUB"]
@@ -219,7 +213,10 @@ class ChatRequest(BaseModel):
     user_message: str = Field(..., description="The message content from the user")
     session_id: Optional[UUID] = Field(
         None,
-        description="Optional session ID for continuing a conversation. If not provided, a new session will be created.",
+        description=(
+            "Optional session ID for continuing a conversation. "
+            "If not provided, a new session will be created."
+        ),
     )
 
 

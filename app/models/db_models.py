@@ -1,16 +1,11 @@
-from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
 from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
-)
-from sqlalchemy import Enum as SQLEnum
-from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
@@ -19,8 +14,7 @@ from sqlalchemy import (
     types,
 )
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -138,11 +132,12 @@ class Document(Base):
     file_type = Column(String(50), nullable=False)
     status = Column(
         String(20), nullable=False, default="processing"
-    )  # 'processing', 'processed', 'error'
+    )  # Status can be: 'processing', 'processed', 'error'
     error_message = Column(Text, nullable=True)
     document_metadata = Column(
         "metadata", JSONB, nullable=True
-    )  # Renamed from metadata to document_metadata, but keeping 'metadata' as the actual column name
+    )  # Renamed from metadata to document_metadata,
+    # but keeping 'metadata' as the actual column name
 
     # Relationships
     chunks = relationship("DocumentChunk", back_populates="document")
@@ -169,7 +164,11 @@ class DocumentChunk(Base):
     document = relationship("Document", back_populates="chunks")
 
     def __repr__(self) -> str:
-        return f"<DocumentChunk(id={self.id}, document_id={self.document_id}, index={self.chunk_index})>"
+        return (
+            f"<DocumentChunk(id={self.id}, "
+            f"document_id={self.document_id}, "
+            f"index={self.chunk_index})>"
+        )
 
 
 class ChatSession(Base):
@@ -219,7 +218,9 @@ class ChatMessage(Base):
     content = Column(Text, nullable=False)
     message_metadata = Column(
         "metadata", JSONB, nullable=True
-    )  # Renamed from metadata to message_metadata, but keeping 'metadata' as the actual column name  # Additional metadata as JSON
+    )  # Renamed from metadata to message_metadata,
+    # but keeping 'metadata' as the actual column name
+    # Additional metadata as JSON
 
     # Relationships
     session = relationship("ChatSession", back_populates="messages")

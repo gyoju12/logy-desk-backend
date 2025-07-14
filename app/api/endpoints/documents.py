@@ -1,18 +1,14 @@
 import logging
 import os
-import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud import crud_document
 from app.db.session import get_db
-from app.models.db_models import Document, User
-from app.schemas import Document as DocumentSchema
 
 # Default user ID for MVP
 DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000000"
@@ -94,7 +90,6 @@ async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depen
 
         # Get file size
         file_size = len(contents)
-        content_type = file.content_type or "application/octet-stream"
 
         # Create document record in database
         document_data = {
@@ -225,7 +220,7 @@ async def get_document(document_id: str, db: AsyncSession = Depends(get_db)):
             from uuid import UUID
 
             UUID(document_id)  # Will raise ValueError if not a valid UUID
-        except ValueError as ve:
+        except ValueError:
             error_msg = f"Invalid document ID format: {document_id}"
             logger.warning(error_msg)
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
@@ -238,6 +233,9 @@ async def get_document(document_id: str, db: AsyncSession = Depends(get_db)):
             error_msg = f"Document not found with ID: {document_id}"
             logger.warning(error_msg)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error_msg)
+
+        # Import Document here to avoid circular imports
+        from app.models.db_models import Document as DBDocument  # noqa: F401
 
         # Format the response according to the API spec
         response_data = {
@@ -281,7 +279,7 @@ async def delete_document(document_id: str, db: AsyncSession = Depends(get_db)):
             from uuid import UUID
 
             UUID(document_id)  # Will raise ValueError if not a valid UUID
-        except ValueError as ve:
+        except ValueError:
             error_msg = f"Invalid document ID format: {document_id}"
             logger.warning(error_msg)
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
