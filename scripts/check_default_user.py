@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 from sqlalchemy import text
+
 from app.db.session import async_session_maker
 
 # Add the project root to the Python path
