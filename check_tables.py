@@ -55,7 +55,7 @@ async def check_tables():
 
                 print("  Columns:")
                 for col in cols:
-                    null_status = 'NULL' if col[2] == 'YES' else 'NOT NULL'
+                    null_status = "NULL" if col[2] == "YES" else "NOT NULL"
                     print(f"  - {col[0]}: {col[1]} ({null_status})")
 
     except Exception as e:
