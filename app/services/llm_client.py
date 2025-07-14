@@ -148,7 +148,9 @@ class LLMClient:
         if not messages or not isinstance(messages, list):
             raise ValueError("Messages must be a non-empty list")
 
-    def _sanitize_parameters(self, temperature: float, max_tokens: int) -> tuple[float, int]:
+    def _sanitize_parameters(
+        self, temperature: float, max_tokens: int
+    ) -> tuple[float, int]:
         """Ensure parameters are within valid ranges."""
         return max(0.0, min(2.0, temperature)), min(max_tokens, 2000)
 
@@ -174,7 +176,9 @@ class LLMClient:
         """Get the list of models to try, including fallbacks."""
         models_to_try = [current_model]
         if hasattr(self, "_fallback_models"):
-            models_to_try.extend([m for m in self._fallback_models if m not in self._tried_models])
+            models_to_try.extend(
+                [m for m in self._fallback_models if m not in self._tried_models]
+            )
         return models_to_try
 
     async def _try_model_with_retries(
@@ -182,7 +186,7 @@ class LLMClient:
         model: str,
         messages: List[Dict[str, str]],
         temperature: float,
-        max_tokens: int
+        max_tokens: int,
     ) -> Optional[str]:
         """Attempt to get a response from a specific model with retries."""
         self._tried_models.add(model)
@@ -208,7 +212,7 @@ class LLMClient:
     async def _handle_retry(self, attempt: int, model: str, error: Exception) -> bool:
         """Handle retry logic for failed attempts."""
         if attempt < self._max_retries - 1:
-            retry_delay = self._retry_delay * (2 ** attempt)
+            retry_delay = self._retry_delay * (2**attempt)
             logger.warning(
                 f"Attempt {attempt + 1} failed for model {model}: "
                 f"{str(error)}. Retrying in {retry_delay:.1f}s..."
@@ -221,7 +225,9 @@ class LLMClient:
 
     def _log_successful_response(self, response_text: str, model: str) -> None:
         """Log successful response details."""
-        response_preview = response_text[:200] + ("..." if len(response_text) > 200 else "")
+        response_preview = response_text[:200] + (
+            "..." if len(response_text) > 200 else ""
+        )
         logger.debug(f"Received LLM response: {response_preview}")
         logger.info(f"Successfully generated chat response from {model}")
 
