@@ -6,9 +6,14 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import RedirectResponse
 from fastapi.routing import APIRouter
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
+from fastapi import Depends
 
 # Import API routers
 from app.api.router import api_router
+from app.crud import crud_agent, crud_chat
+from app.db.session import get_db
 
 # API version
 API_PREFIX = "/api/v1"
@@ -57,9 +62,40 @@ async def health_check():
     return {"status": "healthy"}
 
 
-# Include API routers with version prefix
+# 레거시 API 호환성을 위한 라우터
+legacy_router = APIRouter()
+
+
+@legacy_router.get("/agents", include_in_schema=False)
+async def legacy_list_agents(type: str = None, db: Session = Depends(get_db)):
+    """
+    레거시 엔드포인트: /api/agents
+
+    - type: 필터링할 에이전트 유형 (main, sub)
+    """
+    agents = await crud_agent.agent.get_multi(db)
+    if type in ["main", "sub"]:
+        agents = [a for a in agents if a.agent_type == type]
+    return agents
+
+
+@legacy_router.get("/chats", include_in_schema=False)
+async def legacy_list_chats(db: Session = Depends(get_db)):
+    """
+    레거시 엔드포인트: /api/chats
+
+    현재는 빈 배열을 반환합니다.
+    실제 구현이 필요하다면 채팅 세션 목록을 반환하도록 수정해야 합니다.
+    """
+    return []
+
+
+# API 라우터 포함 (버전 접두사 사용)
 app.include_router(api_router, prefix=API_PREFIX)
 app.include_router(root_router)
+
+# 레거시 라우터 포함 (버전 접두사 없이 /api 경로에 매핑)
+app.include_router(legacy_router, prefix="/api")
 
 
 # Redirect /doc to /docs

@@ -3,16 +3,17 @@ import sys
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
-
 from alembic import context
+
+# Import SQLAlchemy models for autogenerate support
+from app.db.base import Base  # noqa: F401
 
 # Add the project root directory to the Python path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-# Import SQLAlchemy models for autogenerate support
-from app.db.base import Base
-from app.models.models import *  # noqa: F403, F401
+# Import models for autogenerate support
+from app.models.models import *  # noqa: F401, F403, E402
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -63,11 +64,8 @@ def run_migrations_online() -> None:
     In this scenario we need to create an Engine
     and associate a connection with the context.
     """
-    from sqlalchemy.ext.asyncio import create_async_engine
-
     # Get database URL from settings
     from app.core.config import settings
-    from app.db.database import async_engine
 
     # Create a sync engine for migrations
     sync_url = str(settings.DATABASE_URI).replace("+asyncpg", "")
