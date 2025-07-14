@@ -1,9 +1,8 @@
 import asyncio
 
-from sqlalchemy import inspect, text
+from sqlalchemy import text
 
-from app.core.config import settings
-from app.db.base import AsyncSessionLocal, async_engine
+from app.db.base import async_engine
 
 
 async def check_database_schema():
@@ -13,7 +12,12 @@ async def check_database_schema():
         # Check if tables were created
         result = await conn.execute(
             text(
-                """SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;"""
+                """
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema = 'public'
+                ORDER BY table_name;
+                """
             )
         )
         tables = [row[0] for row in await result.fetchall()]
@@ -33,18 +37,19 @@ async def check_database_schema():
                 )
             )
 
-            print(f"  Columns:")
+            print("  Columns:")
             for col in result.fetchall():
                 print(
-                    f"  - {col[0]}: {col[1]} ({'NULL' if col[2] == 'YES' else 'NOT NULL'})"
+                    f"  - {col[0]}: {col[1]} "
+                    f"({'NULL' if col[2] == 'YES' else 'NOT NULL'})"
                 )
 
             # Check indexes
             result = await conn.execute(
                 text(
                     f"""
-                SELECT indexname, indexdef 
-                FROM pg_indexes 
+                SELECT indexname, indexdef
+                FROM pg_indexes
                 WHERE tablename = '{table}';
             """
                 )
@@ -52,7 +57,7 @@ async def check_database_schema():
 
             indexes = result.fetchall()
             if indexes:
-                print(f"  Indexes:")
+                print("  Indexes:")
                 for idx in indexes:
                     print(f"  - {idx[0]}")
 
