@@ -7,8 +7,7 @@ from sqlalchemy.engine import URL
 # Add the project root to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Import settings after adding to path
-from app.core.config import settings
+from app.core.config import settings  # noqa: E402
 
 
 def check_schema():
@@ -47,7 +46,8 @@ def check_schema():
         print("  Columns:")
         for col in columns:
             print(
-                f"    - {col['name']}: {col['type']} {'(PK)' if col.get('primary_key', False) else ''}"
+                f"    - {col['name']}: {col['type']} "
+                f"{' (PK)' if col.get('primary_key', False) else ''}"
             )
 
         # Get indexes
@@ -56,7 +56,8 @@ def check_schema():
             print("\n  Indexes:")
             for idx in indexes:
                 print(
-                    f"    - {idx['name']}: {', '.join(idx['column_names'])} {'(unique)' if idx.get('unique', False) else ''}"
+                    f"    - {idx['name']}: {', '.join(idx['column_names'])} "
+                    f"{'(unique)' if idx.get('unique', False) else ''}"
                 )
 
         # Get foreign keys
@@ -65,7 +66,8 @@ def check_schema():
             print("\n  Foreign Keys:")
             for fk in fks:
                 print(
-                    f"    - {', '.join(fk['constrained_columns'])} → {fk['referred_table']}({', '.join(fk['referred_columns'])})"
+                    f"    - {', '.join(fk['constrained_columns'])} → "
+                    f"{fk['referred_table']}({', '.join(fk['referred_columns'])})"
                 )
 
     print("\n✅ Schema check completed!")
