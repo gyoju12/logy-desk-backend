@@ -22,9 +22,7 @@ class AgentBase(BaseModel):
     name: str = Field(..., description="Name of the agent")
     agent_type: AgentType = Field(..., description="Type of agent (main or sub)")
     model: str = Field(..., description="Model identifier used by the agent")
-    temperature: float = Field(
-        ..., ge=0.0, le=2.0, description="Sampling temperature (0.0 to 2.0)"
-    )
+    temperature: float = Field(..., ge=0.0, le=2.0, description="Sampling temperature (0.0 to 2.0)")
     system_prompt: str = Field(
         ..., description="System prompt defining the agent's role and behavior"
     )
@@ -51,9 +49,7 @@ class Agent(AgentBase):
     """Complete agent schema including database fields."""
 
     id: UUID = Field(..., description="Unique identifier for the agent")
-    created_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Creation timestamp"
-    )
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="Creation timestamp")
     updated_at: datetime = Field(
         default_factory=datetime.utcnow, description="Last update timestamp"
     )
@@ -116,9 +112,7 @@ class Document(DocumentBase):
     """Schema for document metadata in the knowledge base."""
 
     id: UUID = Field(..., description="Unique identifier for the document")
-    uploaded_at: datetime = Field(
-        ..., description="Timestamp when the document was uploaded"
-    )
+    uploaded_at: datetime = Field(..., description="Timestamp when the document was uploaded")
 
     @field_serializer("id")
     def serialize_id(self, id: UUID, _info) -> str:
@@ -133,9 +127,7 @@ class Document(DocumentBase):
 class ChatMessageBase(BaseModel):
     """Base schema for a chat message."""
 
-    role: MessageRole = Field(
-        ..., description="Role of the message sender (user/assistant)"
-    )
+    role: MessageRole = Field(..., description="Role of the message sender (user/assistant)")
     content: str = Field(..., description="Content of the message")
 
 
@@ -148,9 +140,7 @@ class ChatMessageCreate(ChatMessageBase):
 class ChatMessageUpdate(BaseModel):
     """Schema for updating a chat message."""
 
-    role: Optional[MessageRole] = Field(
-        None, description="Updated role of the message sender"
-    )
+    role: Optional[MessageRole] = Field(None, description="Updated role of the message sender")
     content: Optional[str] = Field(None, description="Updated content of the message")
 
 
@@ -158,12 +148,8 @@ class ChatMessage(ChatMessageBase):
     """Schema for a chat message with database fields."""
 
     id: UUID = Field(..., description="Unique identifier for the message")
-    session_id: UUID = Field(
-        ..., description="ID of the chat session this message belongs to"
-    )
-    created_at: datetime = Field(
-        ..., description="Timestamp when the message was created"
-    )
+    session_id: UUID = Field(..., description="ID of the chat session this message belongs to")
+    created_at: datetime = Field(..., description="Timestamp when the message was created")
 
     @field_serializer("id", "session_id")
     def serialize_uuids(self, v: UUID, _info) -> str:
@@ -189,9 +175,7 @@ class ChatSessionCreate(ChatSessionBase):
 class ChatSessionUpdate(BaseModel):
     """Schema for updating a chat session."""
 
-    title: Optional[str] = Field(
-        None, description="Updated title or summary of the chat session"
-    )
+    title: Optional[str] = Field(None, description="Updated title or summary of the chat session")
 
 
 class ChatSession(ChatSessionBase):
@@ -217,9 +201,7 @@ class ChatSessionDetail(BaseModel):
     created_at: datetime = Field(..., description="Creation timestamp of the session")
     updated_at: datetime = Field(..., description="Last update timestamp")
     title: str = Field(..., description="Title or summary of the chat session")
-    messages: List[ChatMessage] = Field(
-        ..., description="List of messages in the session"
-    )
+    messages: List[ChatMessage] = Field(..., description="List of messages in the session")
 
     @field_serializer("id")
     def serialize_id(self, id: UUID, _info) -> str:

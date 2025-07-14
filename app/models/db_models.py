@@ -67,9 +67,7 @@ class Agent(Base):
 
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     name = Column(String(100), nullable=False)
     agent_type = Column(AgentTypeDB, nullable=False, default=AgentType.SUB)
@@ -93,9 +91,7 @@ class User(Base):
 
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     email = Column(String(255), unique=True, nullable=False, index=True)
 
@@ -133,9 +129,7 @@ class Document(Base):
 
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     file_name = Column(String(255), nullable=False)
@@ -154,9 +148,7 @@ class Document(Base):
     chunks = relationship("DocumentChunk", back_populates="document")
 
     def __repr__(self) -> str:
-        return (
-            f"<Document(id={self.id}, file_name={self.file_name}, status={self.status}>"
-        )
+        return f"<Document(id={self.id}, file_name={self.file_name}, status={self.status}>"
 
 
 class DocumentChunk(Base):
@@ -166,13 +158,9 @@ class DocumentChunk(Base):
 
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    document_id = Column(
-        PG_UUID(as_uuid=True), ForeignKey("documents.id"), nullable=False
-    )
+    document_id = Column(PG_UUID(as_uuid=True), ForeignKey("documents.id"), nullable=False)
     chunk_text = Column(Text, nullable=False)
     chunk_index = Column(Integer, nullable=False)
     vector_id = Column(String(100), nullable=True)  # Reference to vector in ChromaDB
@@ -191,9 +179,7 @@ class ChatSession(Base):
 
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     title = Column(String(200), nullable=True)
@@ -201,9 +187,7 @@ class ChatSession(Base):
 
     # Relationships
     user = relationship("User", back_populates="chat_sessions")
-    messages = relationship(
-        "ChatMessage", back_populates="session", cascade="all, delete-orphan"
-    )
+    messages = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan")
 
     def __init__(
         self,
@@ -218,9 +202,7 @@ class ChatSession(Base):
         self.is_active = is_active
 
     def __repr__(self) -> str:
-        return (
-            f"<ChatSession(id={self.id}, user_id={self.user_id}, title={self.title})>"
-        )
+        return f"<ChatSession(id={self.id}, user_id={self.user_id}, title={self.title})>"
 
 
 class ChatMessage(Base):
@@ -230,13 +212,9 @@ class ChatMessage(Base):
 
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    session_id = Column(
-        PG_UUID(as_uuid=True), ForeignKey("chat_sessions.id"), nullable=False
-    )
+    session_id = Column(PG_UUID(as_uuid=True), ForeignKey("chat_sessions.id"), nullable=False)
     role = Column(String(20), nullable=False)  # 'user', 'assistant', 'system', 'tool'
     content = Column(Text, nullable=False)
     message_metadata = Column(

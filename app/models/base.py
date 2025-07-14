@@ -38,9 +38,7 @@ class BaseModel:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert model instance to dictionary."""
-        return {
-            column.name: getattr(self, column.name) for column in self.__table__.columns
-        }
+        return {column.name: getattr(self, column.name) for column in self.__table__.columns}
 
     def update(self, **kwargs) -> None:
         """Update model instance with given attributes."""

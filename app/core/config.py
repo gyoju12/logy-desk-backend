@@ -27,9 +27,7 @@ class Settings(BaseSettings):
     CHROMA_DB_PATH: str = os.getenv("CHROMA_DB_PATH", "./chroma_db")
 
     # LLM Provider Configuration
-    LLM_PROVIDER: str = os.getenv(
-        "LLM_PROVIDER", "openrouter"
-    )  # 'openai' or 'openrouter'
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openrouter")  # 'openai' or 'openrouter'
 
     # OpenAI Configuration (used as fallback)
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
@@ -37,9 +35,7 @@ class Settings(BaseSettings):
 
     # OpenRouter Configuration
     OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
-    OPENROUTER_BASE_URL: str = os.getenv(
-        "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
-    )
+    OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
     OPENROUTER_MODEL: str = os.getenv("OPENROUTER_MODEL", "google/gemma-3-27b-it:free")
 
     # CORS

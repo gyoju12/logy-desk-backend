@@ -14,12 +14,8 @@ class DocumentBase(BaseModel):
     file_size: int = Field(..., description="Size of the file in bytes")
     file_type: str = Field(..., description="MIME type of the file")
     status: str = Field("processing", description="Processing status of the document")
-    error_message: Optional[str] = Field(
-        None, description="Error message if processing failed"
-    )
-    document_metadata: Optional[Dict[str, Any]] = Field(
-        None, description="Additional metadata"
-    )
+    error_message: Optional[str] = Field(None, description="Error message if processing failed")
+    document_metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
 
 
 class DocumentCreate(DocumentBase):
@@ -33,12 +29,8 @@ class DocumentUpdate(BaseModel):
 
     title: Optional[str] = Field(None, description="New title for the document")
     status: Optional[str] = Field(None, description="Updated processing status")
-    error_message: Optional[str] = Field(
-        None, description="Error message if processing failed"
-    )
-    document_metadata: Optional[Dict[str, Any]] = Field(
-        None, description="Updated metadata"
-    )
+    error_message: Optional[str] = Field(None, description="Error message if processing failed")
+    document_metadata: Optional[Dict[str, Any]] = Field(None, description="Updated metadata")
 
 
 class DocumentInDBBase(DocumentBase):

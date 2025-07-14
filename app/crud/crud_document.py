@@ -14,22 +14,15 @@ class CRUDDocument(CRUDBase[Document, DocumentCreate, DocumentUpdate]):
     def __init__(self):
         super().__init__(Document)
 
-    async def get_by_filename(
-        self, db: AsyncSession, *, filename: str
-    ) -> Optional[Document]:
-        result = await db.execute(
-            select(self.model).filter(self.model.file_name == filename)
-        )
+    async def get_by_filename(self, db: AsyncSession, *, filename: str) -> Optional[Document]:
+        result = await db.execute(select(self.model).filter(self.model.file_name == filename))
         return result.scalars().first()
 
     async def get_multi_by_owner(
         self, db: AsyncSession, *, user_id: str, skip: int = 0, limit: int = 100
     ) -> List[Document]:
         result = await db.execute(
-            select(self.model)
-            .filter(self.model.user_id == user_id)
-            .offset(skip)
-            .limit(limit)
+            select(self.model).filter(self.model.user_id == user_id).offset(skip).limit(limit)
         )
         return result.scalars().all()
 

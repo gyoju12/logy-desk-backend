@@ -39,9 +39,7 @@ except Exception as e:
 
 
 @router.post("/upload", status_code=status.HTTP_200_OK)
-async def upload_document(
-    file: UploadFile = File(...), db: AsyncSession = Depends(get_db)
-):
+async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
     """
     Upload a document to the knowledge base (Development only - no auth).
 
@@ -55,9 +53,7 @@ async def upload_document(
 
     if not file:
         logger.error("No file provided in the request")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="No file provided"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No file provided")
 
     # Ensure upload directory exists
     upload_path = Path(UPLOAD_DIR)
@@ -67,9 +63,7 @@ async def upload_document(
     except Exception as e:
         error_msg = f"Failed to create upload directory: {str(e)}"
         logger.error(error_msg, exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg)
 
     # Generate file path
     file_extension = os.path.splitext(file.filename or "")[1]
@@ -86,9 +80,7 @@ async def upload_document(
         except Exception as e:
             error_msg = f"Failed to read uploaded file: {str(e)}"
             logger.error(error_msg, exc_info=True)
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
 
         # Save file
         try:
@@ -98,9 +90,7 @@ async def upload_document(
         except Exception as e:
             error_msg = f"Failed to save file to disk: {str(e)}"
             logger.error(error_msg, exc_info=True)
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg
-            )
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg)
 
         # Get file size
         file_size = len(contents)
@@ -124,9 +114,7 @@ async def upload_document(
         try:
             logger.info("Saving document to database...")
             # Use crud_document.document instead of crud_document.document_crud
-            db_document = await crud_document.document.create(
-                db=db, obj_in=document_data
-            )
+            db_document = await crud_document.document.create(db=db, obj_in=document_data)
             await db.commit()
             await db.refresh(db_document)
             logger.info(f"Document saved to database with ID: {db_document.id}")
@@ -138,9 +126,7 @@ async def upload_document(
                 "document_id": str(db_document.id),
             }
 
-            logger.info(
-                f"Upload completed successfully for document ID: {db_document.id}"
-            )
+            logger.info(f"Upload completed successfully for document ID: {db_document.id}")
             return response_data
 
         except Exception as e:
@@ -157,9 +143,7 @@ async def upload_document(
                         f"Error during file cleanup after database error: {str(cleanup_error)}"
                     )
 
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg
-            )
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg)
 
     except HTTPException:
         # Re-raise HTTP exceptions
@@ -168,9 +152,7 @@ async def upload_document(
     except Exception as e:
         error_msg = f"Unexpected error during document upload: {str(e)}"
         logger.error(error_msg, exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg)
 
     finally:
         # Ensure the uploaded file is properly closed
@@ -180,9 +162,7 @@ async def upload_document(
 
 
 @router.get("", response_model=dict)
-async def list_documents(
-    skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)
-):
+async def list_documents(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
     """
     Get a list of all uploaded documents.
 
@@ -193,9 +173,7 @@ async def list_documents(
         logger.info(f"Fetching documents (skip={skip}, limit={limit})")
 
         # Get documents from the database using the correct CRUD reference
-        documents = await crud_document.document.get_multi(
-            db=db, skip=skip, limit=limit
-        )
+        documents = await crud_document.document.get_multi(db=db, skip=skip, limit=limit)
 
         # Format the response according to the API spec
         formatted_documents = [
@@ -205,8 +183,7 @@ async def list_documents(
                 "file_size": doc.file_size,
                 "file_type": doc.file_type,
                 "status": doc.status,
-                "uploaded_at": doc.created_at.isoformat()
-                + "Z",  # ISO 8601 format with Z for UTC
+                "uploaded_at": doc.created_at.isoformat() + "Z",  # ISO 8601 format with Z for UTC
             }
             for doc in documents
         ]
@@ -230,9 +207,7 @@ async def list_documents(
     except Exception as e:
         error_msg = f"Error listing documents: {str(e)}"
         logger.error(error_msg, exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg)
 
 
 @router.get("/{document_id}", response_model=dict)
@@ -253,9 +228,7 @@ async def get_document(document_id: str, db: AsyncSession = Depends(get_db)):
         except ValueError as ve:
             error_msg = f"Invalid document ID format: {document_id}"
             logger.warning(error_msg)
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
 
         # Get the document from the database using the correct CRUD reference
         document = await crud_document.document.get(db=db, id=document_id)
@@ -276,9 +249,7 @@ async def get_document(document_id: str, db: AsyncSession = Depends(get_db)):
             "status": document.status,
             "uploaded_at": document.created_at.isoformat() + "Z",
             # Convert metadata to dict if it's not already
-            "metadata": (
-                dict(document.metadata) if hasattr(document.metadata, "items") else {}
-            ),
+            "metadata": (dict(document.metadata) if hasattr(document.metadata, "items") else {}),
         }
 
         logger.info(f"Successfully retrieved document: {document_id}")
@@ -291,9 +262,7 @@ async def get_document(document_id: str, db: AsyncSession = Depends(get_db)):
     except Exception as e:
         error_msg = f"Error retrieving document {document_id}: {str(e)}"
         logger.error(error_msg, exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg)
 
 
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -315,9 +284,7 @@ async def delete_document(document_id: str, db: AsyncSession = Depends(get_db)):
         except ValueError as ve:
             error_msg = f"Invalid document ID format: {document_id}"
             logger.warning(error_msg)
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
 
         # Get the document from the database first
         db_document = await crud_document.document.get(db=db, id=document_id)
@@ -356,6 +323,4 @@ async def delete_document(document_id: str, db: AsyncSession = Depends(get_db)):
         await db.rollback()
         error_msg = f"Error deleting document {document_id}: {str(e)}"
         logger.error(error_msg, exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg)

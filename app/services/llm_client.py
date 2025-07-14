@@ -56,14 +56,11 @@ class LLMClient:
         try:
             if self.provider == "openrouter":
                 logger.info(
-                    "Initializing OpenRouter client with model: "
-                    f"{settings.OPENROUTER_MODEL}"
+                    "Initializing OpenRouter client with model: " f"{settings.OPENROUTER_MODEL}"
                 )
 
                 if not settings.OPENROUTER_API_KEY:
-                    error_msg = (
-                        "OpenRouter API key is required when using OpenRouter provider"
-                    )
+                    error_msg = "OpenRouter API key is required when using OpenRouter provider"
                     logger.error(error_msg)
                     raise ValueError(error_msg)
 
@@ -92,9 +89,7 @@ class LLMClient:
                 )
 
             else:  # Default to OpenAI
-                logger.info(
-                    f"Initializing OpenAI client with model: {settings.OPENAI_MODEL}"
-                )
+                logger.info(f"Initializing OpenAI client with model: {settings.OPENAI_MODEL}")
 
                 if not settings.OPENAI_API_KEY:
                     error_msg = "OpenAI API key is required when using OpenAI provider"
@@ -104,8 +99,7 @@ class LLMClient:
                 logger.debug("Initializing standard OpenAI client")
                 self._client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
                 logger.info(
-                    "Successfully initialized OpenAI client with model: "
-                    f"{settings.OPENAI_MODEL}"
+                    "Successfully initialized OpenAI client with model: " f"{settings.OPENAI_MODEL}"
                 )
 
         except Exception as e:
@@ -179,9 +173,7 @@ class LLMClient:
         current_model = self.get_model_name()
 
         # Log the request
-        logger.info(
-            f"Generating chat response with {self.provider} model: {current_model}"
-        )
+        logger.info(f"Generating chat response with {self.provider} model: {current_model}")
         try:
             messages_preview = [
                 {
@@ -207,9 +199,7 @@ class LLMClient:
         # Get the current model and fallback models
         models_to_try = [current_model]
         if hasattr(self, "_fallback_models"):
-            models_to_try.extend(
-                [m for m in self._fallback_models if m not in self._tried_models]
-            )
+            models_to_try.extend([m for m in self._fallback_models if m not in self._tried_models])
 
         for model in models_to_try:
             if model in self._tried_models:
@@ -248,9 +238,7 @@ class LLMClient:
                         )
                         await asyncio.sleep(retry_delay)
                     else:
-                        logger.error(
-                            f"All {self._max_retries} attempts failed for model {model}"
-                        )
+                        logger.error(f"All {self._max_retries} attempts failed for model {model}")
 
         # If we get here, all models and retries failed
         error_msg = (

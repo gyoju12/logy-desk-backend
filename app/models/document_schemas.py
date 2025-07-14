@@ -34,21 +34,15 @@ class DocumentUpdate(BaseModel):
 
     title: Optional[str] = Field(None, description="New title for the document")
     filename: Optional[str] = Field(None, description="New filename for the document")
-    content_type: Optional[str] = Field(
-        None, description="New MIME type for the document"
-    )
-    size: Optional[int] = Field(
-        None, ge=0, description="New size of the document in bytes"
-    )
+    content_type: Optional[str] = Field(None, description="New MIME type for the document")
+    size: Optional[int] = Field(None, ge=0, description="New size of the document in bytes")
 
 
 class Document(DocumentBase):
     """Schema for document metadata in the knowledge base."""
 
     id: str = Field(..., description="Unique identifier for the document")
-    uploaded_at: datetime = Field(
-        ..., description="Timestamp when the document was uploaded"
-    )
+    uploaded_at: datetime = Field(..., description="Timestamp when the document was uploaded")
 
     class Config:
         from_attributes = True

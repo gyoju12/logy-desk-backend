@@ -55,9 +55,7 @@ def upgrade() -> None:
         nullable=True,
     )
     op.alter_column("agents", "system_prompt", existing_type=sa.TEXT(), nullable=True)
-    op.drop_constraint(
-        "chat_sessions_agent_id_fkey", "chat_sessions", type_="foreignkey"
-    )
+    op.drop_constraint("chat_sessions_agent_id_fkey", "chat_sessions", type_="foreignkey")
     op.drop_column("chat_sessions", "agent_id")
     # ### end Alembic commands ###
 

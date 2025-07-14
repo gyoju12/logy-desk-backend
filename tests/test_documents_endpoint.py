@@ -117,9 +117,7 @@ def test_upload_document(auth_headers):
     files = {"file": test_file}
     data = {"file_name": "test_upload.txt"}
 
-    response = client.post(
-        "/api/v1/documents/upload", headers=auth_headers, files=files, data=data
-    )
+    response = client.post("/api/v1/documents/upload", headers=auth_headers, files=files, data=data)
 
     assert response.status_code == 200
     result = response.json()

@@ -12,9 +12,7 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    password: str = Field(
-        ..., min_length=8, description="User's password (min 8 characters)"
-    )
+    password: str = Field(..., min_length=8, description="User's password (min 8 characters)")
 
 
 class UserUpdate(BaseModel):

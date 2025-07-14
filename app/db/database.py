@@ -32,9 +32,7 @@ AsyncSessionLocal = sessionmaker(
 
 # Create sync engine for initialization
 # Use psycopg2 for synchronous operations
-sync_engine = create_engine(
-    str(settings.DATABASE_URI).replace("+asyncpg", ""), pool_pre_ping=True
-)
+sync_engine = create_engine(str(settings.DATABASE_URI).replace("+asyncpg", ""), pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=sync_engine)
 
 

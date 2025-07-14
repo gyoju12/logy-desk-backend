@@ -14,9 +14,7 @@ DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000000"
 router = APIRouter()
 
 
-@router.post(
-    "", response_model=schemas.ChatSession, status_code=status.HTTP_201_CREATED
-)
+@router.post("", response_model=schemas.ChatSession, status_code=status.HTTP_201_CREATED)
 async def create_chat_session(
     chat_session: schemas.ChatSessionCreate, db: AsyncSession = Depends(get_db)
 ):
@@ -36,9 +34,7 @@ async def create_chat_session(
 
 
 @router.get("", response_model=List[schemas.ChatSession])
-async def list_chat_sessions(
-    skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)
-):
+async def list_chat_sessions(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
     """
     모든 채팅 세션 목록을 조회합니다 (개발용 - 인증 없음).
 

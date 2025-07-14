@@ -39,10 +39,7 @@ async def check_database_schema():
 
             print("  Columns:")
             for col in result.fetchall():
-                print(
-                    f"  - {col[0]}: {col[1]} "
-                    f"({'NULL' if col[2] == 'YES' else 'NOT NULL'})"
-                )
+                print(f"  - {col[0]}: {col[1]} " f"({'NULL' if col[2] == 'YES' else 'NOT NULL'})")
 
             # Check indexes
             result = await conn.execute(
