@@ -3,10 +3,10 @@
 import asyncio
 import json
 import logging
-from typing import Dict, List
 
 import httpx
 from openai import AsyncOpenAI
+
 from app.core.config import settings
 
 DEFAULT_MODEL = "google/gemma-3-27b-it:free"
