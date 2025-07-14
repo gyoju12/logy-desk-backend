@@ -2,13 +2,17 @@ import asyncio
 import sys
 from pathlib import Path
 
-# Add the project root to the Python path
+# Add the project root to the Python path first
 project_root = str(Path(__file__).resolve().parent)
-sys.path.append(project_root)
+sys.path.insert(0, project_root)
 
-from sqlalchemy import text
-
-from app.db.base import async_engine
+# Now import local modules
+try:
+    from sqlalchemy import text
+    from app.db.base import async_engine
+except ImportError as e:
+    print(f"Error importing modules: {e}")
+    sys.exit(1)
 
 
 async def check_tables():
@@ -20,8 +24,8 @@ async def check_tables():
             result = await conn.execute(
                 text(
                     """
-                SELECT table_name 
-                FROM information_schema.tables 
+                SELECT table_name
+                FROM information_schema.tables
                 WHERE table_schema = 'public';
             """
                 )
@@ -51,9 +55,8 @@ async def check_tables():
 
                 print("  Columns:")
                 for col in cols:
-                    print(
-                        f"  - {col[0]}: {col[1]} ({'NULL' if col[2] == 'YES' else 'NOT NULL'})"
-                    )
+                    null_status = 'NULL' if col[2] == 'YES' else 'NOT NULL'
+                    print(f"  - {col[0]}: {col[1]} ({null_status})")
 
     except Exception as e:
         print(f"❌ Error checking tables: {e}")
