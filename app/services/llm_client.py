@@ -56,7 +56,8 @@ class LLMClient:
         try:
             if self.provider == "openrouter":
                 logger.info(
-                    f"Initializing OpenRouter client with model: {settings.OPENROUTER_MODEL}"
+                    "Initializing OpenRouter client with model: "
+                    f"{settings.OPENROUTER_MODEL}"
                 )
 
                 if not settings.OPENROUTER_API_KEY:
@@ -86,7 +87,8 @@ class LLMClient:
                     http_client=self._http_client,
                 )
                 logger.info(
-                    f"Successfully initialized OpenRouter client with model: {settings.OPENROUTER_MODEL}"
+                    "Successfully initialized OpenRouter client with model: "
+                    f"{settings.OPENROUTER_MODEL}"
                 )
 
             else:  # Default to OpenAI
@@ -102,7 +104,8 @@ class LLMClient:
                 logger.debug("Initializing standard OpenAI client")
                 self._client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
                 logger.info(
-                    f"Successfully initialized OpenAI client with model: {settings.OPENAI_MODEL}"
+                    "Successfully initialized OpenAI client with model: "
+                    f"{settings.OPENAI_MODEL}"
                 )
 
         except Exception as e:
@@ -188,7 +191,8 @@ class LLMClient:
                 for msg in messages
             ]
             logger.debug(
-                f"Sending messages to LLM: {json.dumps(messages_preview, ensure_ascii=False, indent=2)}"
+                "Sending messages to LLM: "
+                f"{json.dumps(messages_preview, ensure_ascii=False, indent=2)}"
             )
         except Exception as e:
             logger.warning(f"Could not log message preview: {str(e)}")
@@ -239,8 +243,8 @@ class LLMClient:
                     if attempt < self._max_retries - 1:
                         retry_delay = self._retry_delay * (2**attempt)
                         logger.warning(
-                            f"Attempt {attempt + 1} failed for model {model}: {str(e)}. "
-                            f"Retrying in {retry_delay:.1f}s..."
+                            f"Attempt {attempt + 1} failed for model {model}: "
+                            f"{str(e)}. Retrying in {retry_delay:.1f}s..."
                         )
                         await asyncio.sleep(retry_delay)
                     else:
@@ -249,7 +253,10 @@ class LLMClient:
                         )
 
         # If we get here, all models and retries failed
-        error_msg = f"Failed to generate chat response after trying {len(self._tried_models)} models and {self._max_retries} retries each"
+        error_msg = (
+            f"Failed to generate chat response after trying {len(self._tried_models)} "
+            f"models and {self._max_retries} retries each"
+        )
         if last_error:
             error_msg += f": {str(last_error)}"
 
