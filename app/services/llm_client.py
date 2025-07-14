@@ -3,15 +3,13 @@
 import asyncio
 import json
 import logging
-import os
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List
 
 import httpx
 from openai import AsyncOpenAI
+from app.core.config import settings
 
 DEFAULT_MODEL = "google/gemma-3-27b-it:free"
-
-from app.core.config import settings
 
 # Configure root logger if not already configured
 if not logging.root.handlers:
