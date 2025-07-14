@@ -21,7 +21,7 @@ async_engine = create_async_engine(
     get_async_db_url(settings.DATABASE_URI), echo=settings.DEBUG, future=True
 )
 
-AsyncSessionLocal = sessionmaker(
+AsyncSessionLocal = async_sessionmaker(
     bind=async_engine,
     class_=AsyncSession,
     expire_on_commit=False,
@@ -47,7 +47,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 
-def init_db():
+def init_db() -> None:
     """Initialize the database (synchronously)."""
     # Create all tables
     Base.metadata.create_all(bind=sync_engine)

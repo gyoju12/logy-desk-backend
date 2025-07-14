@@ -1,4 +1,5 @@
-from typing import List
+from typing import List, Dict, Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,9 +10,12 @@ from app.models import schemas
 
 router = APIRouter()
 
+# Default user ID for MVP
+DEFAULT_USER_ID = UUID("00000000-0000-0000-0000-000000000000") # Changed to UUID object
+
 
 @router.post("", response_model=schemas.Agent, status_code=status.HTTP_201_CREATED)
-async def create_agent(agent: schemas.AgentCreate, db: AsyncSession = Depends(get_db)):
+async def create_agent(agent_in: schemas.AgentCreate, db: AsyncSession = Depends(get_db)) -> schemas.Agent: # Added return type
     """
     새로운 에이전트를 생성합니다 (개발용 - 인증 없음).
 
@@ -22,21 +26,21 @@ async def create_agent(agent: schemas.AgentCreate, db: AsyncSession = Depends(ge
     - **system_prompt**: 시스템 프롬프트
     """
     # For MVP, use a default user ID
-    agent_data = agent.dict()
-    agent_data["user_id"] = "00000000-0000-0000-0000-000000000000"  # Default user ID
+    agent_data = agent_in.model_dump() # Use model_dump()
+    agent_data["user_id"] = DEFAULT_USER_ID
 
-    db_agent = await crud_agent.agent.get_by_name(db, name=agent.name)
+    db_agent = await crud_agent.agent.get_by_name(db, name=agent_in.name)
     if db_agent:
         raise HTTPException(
             status_code=400, detail="이미 존재하는 에이전트 이름입니다."
         )
-    return await crud_agent.agent.create(db, obj_in=agent_data)
+    return await crud_agent.agent.create(db, obj_in=schemas.AgentCreate(**agent_data)) # Pass AgentCreate instance
 
 
 @router.get("", response_model=List[schemas.Agent])
 async def list_agents(
     skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)
-):
+) -> List[schemas.Agent]: # Added return type
     """
     모든 에이전트 목록을 조회합니다 (개발용 - 인증 없음).
 
@@ -44,11 +48,12 @@ async def list_agents(
     - **limit**: 반환할 최대 레코드 수 (페이징용)
     """
     # For MVP, return all agents without user filtering
-    return await crud_agent.agent.get_multi(db, skip=skip, limit=limit)
+    agents = await crud_agent.agent.get_multi(db, skip=skip, limit=limit)
+    return [schemas.Agent.model_validate(agent) for agent in agents] # Return list of Agent instances
 
 
 @router.get("/{agent_id}", response_model=schemas.Agent)
-async def get_agent(agent_id: str, db: AsyncSession = Depends(get_db)):
+async def get_agent(agent_id: UUID, db: AsyncSession = Depends(get_db)) -> schemas.Agent: # Changed agent_id type to UUID, added return type
     """
     특정 에이전트의 상세 정보를 조회합니다.
 
@@ -57,13 +62,13 @@ async def get_agent(agent_id: str, db: AsyncSession = Depends(get_db)):
     db_agent = await crud_agent.agent.get(db, id=agent_id)
     if not db_agent:
         raise HTTPException(status_code=404, detail="에이전트를 찾을 수 없습니다.")
-    return db_agent
+    return schemas.Agent.model_validate(db_agent) # Return Agent instance
 
 
 @router.put("/{agent_id}", response_model=schemas.Agent)
 async def update_agent(
-    agent_id: str, agent_in: schemas.AgentUpdate, db: AsyncSession = Depends(get_db)
-):
+    agent_id: UUID, agent_in: schemas.AgentUpdate, db: AsyncSession = Depends(get_db)
+) -> schemas.Agent: # Added return type
     """
     에이전트 정보를 수정합니다.
 
@@ -73,11 +78,12 @@ async def update_agent(
     db_agent = await crud_agent.agent.get(db, id=agent_id)
     if not db_agent:
         raise HTTPException(status_code=404, detail="에이전트를 찾을 수 없습니다.")
-    return await crud_agent.agent.update(db, db_obj=db_agent, obj_in=agent_in)
+    updated_agent = await crud_agent.agent.update(db, db_obj=db_agent, obj_in=agent_in)
+    return schemas.Agent.model_validate(updated_agent) # Return Agent instance
 
 
 @router.delete("/{agent_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_agent(agent_id: str, db: AsyncSession = Depends(get_db)):
+async def delete_agent(agent_id: UUID, db: AsyncSession = Depends(get_db)) -> None: # Changed agent_id type to UUID, added return type
     """
     에이전트를 삭제합니다.
 

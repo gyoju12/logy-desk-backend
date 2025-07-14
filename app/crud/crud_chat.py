@@ -25,7 +25,7 @@ class CRUDChatSession(CRUDBase[ChatSession, ChatSessionCreate, ChatSessionUpdate
             .offset(skip)
             .limit(limit)
         )
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     async def get_by_title(
         self, db: AsyncSession, *, title: str
@@ -78,7 +78,7 @@ class CRUDChatMessage(CRUDBase[ChatMessage, ChatMessageCreate, ChatMessageUpdate
             .limit(limit)
         )
         result = await db.execute(stmt)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
 
 # Create singleton instances

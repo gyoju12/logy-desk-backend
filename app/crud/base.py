@@ -1,4 +1,5 @@
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
+from uuid import UUID
 
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
@@ -19,7 +20,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         """
         self.model = model
 
-    async def get(self, db: AsyncSession, id: Any) -> Optional[ModelType]:
+    async def get(self, db: AsyncSession, id: Union[int, UUID]) -> Optional[ModelType]:
         result = await db.execute(select(self.model).filter(self.model.id == id))
         return result.scalars().first()
 
@@ -27,7 +28,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         self, db: AsyncSession, *, skip: int = 0, limit: int = 100
     ) -> List[ModelType]:
         result = await db.execute(select(self.model).offset(skip).limit(limit))
-        return result.scalars().all()
+        return list(result.scalars().all()) # Ensure list type
 
     async def create(self, db: AsyncSession, *, obj_in: CreateSchemaType) -> ModelType:
         from datetime import datetime, timezone
@@ -89,7 +90,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
             await db.rollback()
             raise e
 
-    async def remove(self, db: AsyncSession, *, id: int) -> ModelType:
+    async def remove(self, db: AsyncSession, *, id: Union[int, UUID]) -> ModelType:
         result = await db.execute(select(self.model).filter(self.model.id == id))
         obj = result.scalars().first()
         if obj:

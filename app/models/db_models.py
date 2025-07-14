@@ -1,5 +1,6 @@
+from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, Type, List, Dict
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
@@ -16,7 +17,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from app.db.base import Base
@@ -38,18 +39,18 @@ class AgentTypeDB(types.TypeDecorator):
     impl = postgresql.ENUM("main", "sub", name="agenttype")
     cache_ok = True
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any):
         super().__init__(**kwargs)
-        self._enum_type = AgentType
+        self._enum_type: Type[AgentType] = AgentType
 
-    def process_bind_param(self, value: Any, dialect) -> str:
+    def process_bind_param(self, value: Optional[AgentType], dialect: Any) -> Optional[str]:
         if value is None:
             return None
         if isinstance(value, str):
             return value.lower()
         return value.value.lower()
 
-    def process_result_value(self, value: str, dialect) -> AgentType:
+    def process_result_value(self, value: Optional[str], dialect: Any) -> Optional[AgentType]:
         if value is None:
             return None
         return self._enum_type(value.upper())
@@ -60,24 +61,24 @@ class Agent(Base):
 
     __tablename__ = "agents"
 
-    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    name = Column(String(100), nullable=False)
-    agent_type = Column(AgentTypeDB, nullable=False, default=AgentType.SUB)
-    model = Column(String(50), nullable=False)
-    temperature = Column(Float, default=0.7)
-    system_prompt = Column(Text, nullable=True)
-    is_active = Column(Boolean, default=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    agent_type: Mapped[AgentType] = mapped_column(AgentTypeDB, nullable=False, default=AgentType.SUB)
+    model: Mapped[str] = mapped_column(String(50), nullable=False)
+    temperature: Mapped[float] = mapped_column(Float, default=0.7)
+    system_prompt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Relationships
-    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    user = relationship("User", back_populates="agents")
+    user_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    user: Mapped["User"] = relationship("User", back_populates="agents")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Agent(id={self.id}, name='{self.name}', type='{self.agent_type}')>"
 
 
@@ -86,22 +87,22 @@ class User(Base):
 
     __tablename__ = "users"
 
-    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    email = Column(String(255), unique=True, nullable=False, index=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
 
     # Relationships
-    agents = relationship("Agent", back_populates="user")
-    hashed_password = Column(String(255), nullable=False)
-    is_active = Column(Boolean(), default=True)
-    is_superuser = Column(Boolean(), default=False)
+    agents: Mapped[List["Agent"]] = relationship("Agent", back_populates="user")
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean(), default=True)
+    is_superuser: Mapped[bool] = mapped_column(Boolean(), default=False)
 
     # Relationships
-    chat_sessions = relationship("ChatSession", back_populates="user")
+    chat_sessions: Mapped[List["ChatSession"]] = relationship("ChatSession", back_populates="user")
 
     def __init__(
         self,
@@ -109,7 +110,7 @@ class User(Base):
         hashed_password: str,
         is_active: bool = True,
         is_superuser: bool = False,
-        **kwargs,
+        **kwargs: Any,
     ):
         super().__init__(**kwargs)
         self.email = email
@@ -126,28 +127,29 @@ class Document(Base):
 
     __tablename__ = "documents"
 
-    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    file_name = Column(String(255), nullable=False)
-    file_path = Column(String(512), nullable=False)
-    file_size = Column(Integer, nullable=False)
-    file_type = Column(String(50), nullable=False)
-    status = Column(
+    user_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    file_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    file_path: Mapped[str] = mapped_column(String(512), nullable=False)
+    file_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    file_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="processing"
     )  # Status can be: 'processing', 'processed', 'error'
-    error_message = Column(Text, nullable=True)
-    document_metadata = Column(
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    document_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(
         "metadata", JSONB, nullable=True
     )  # Renamed from metadata to document_metadata,
     # but keeping 'metadata' as the actual column name
 
     # Relationships
-    chunks = relationship("DocumentChunk", back_populates="document")
+    chunks: Mapped[List["DocumentChunk"]] = relationship("DocumentChunk", back_populates="document")
 
     def __repr__(self) -> str:
         return (
@@ -160,21 +162,21 @@ class DocumentChunk(Base):
 
     __tablename__ = "document_chunks"
 
-    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    document_id = Column(
+    document_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("documents.id"), nullable=False
     )
-    chunk_text = Column(Text, nullable=False)
-    chunk_index = Column(Integer, nullable=False)
-    vector_id = Column(String(100), nullable=True)  # Reference to vector in ChromaDB
+    chunk_text: Mapped[str] = mapped_column(Text, nullable=False)
+    chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    vector_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # Reference to vector in ChromaDB
 
     # Relationships
-    document = relationship("Document", back_populates="chunks")
+    document: Mapped["Document"] = relationship("Document", back_populates="chunks")
 
     def __repr__(self) -> str:
         return (
@@ -189,19 +191,19 @@ class ChatSession(Base):
 
     __tablename__ = "chat_sessions"
 
-    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    title = Column(String(200), nullable=True)
-    is_active = Column(Boolean, default=True)
+    user_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    title: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Relationships
-    user = relationship("User", back_populates="chat_sessions")
-    messages = relationship(
+    user: Mapped["User"] = relationship("User", back_populates="chat_sessions")
+    messages: Mapped[List["ChatMessage"]] = relationship(
         "ChatMessage", back_populates="session", cascade="all, delete-orphan"
     )
 
@@ -210,7 +212,7 @@ class ChatSession(Base):
         user_id: UUID,
         title: Optional[str] = None,
         is_active: bool = True,
-        **kwargs,
+        **kwargs: Any,
     ):
         super().__init__(**kwargs)
         self.user_id = user_id
@@ -228,25 +230,25 @@ class ChatMessage(Base):
 
     __tablename__ = "chat_messages"
 
-    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    session_id = Column(
+    session_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("chat_sessions.id"), nullable=False
     )
-    role = Column(String(20), nullable=False)  # 'user', 'assistant', 'system', 'tool'
-    content = Column(Text, nullable=False)
-    message_metadata = Column(
+    role: Mapped[str] = mapped_column(String(20), nullable=False)  # 'user', 'assistant', 'system', 'tool'
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    message_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(
         "metadata", JSONB, nullable=True
     )  # Renamed from metadata to message_metadata,
     # but keeping 'metadata' as the actual column name
     # Additional metadata as JSON
 
     # Relationships
-    session = relationship("ChatSession", back_populates="messages")
+    session: Mapped["ChatSession"] = relationship("ChatSession", back_populates="messages")
 
     def __repr__(self) -> str:
         return f"<ChatMessage(id={self.id}, session_id={self.session_id}, role={self.role})>"

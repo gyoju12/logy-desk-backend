@@ -2,6 +2,8 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import func, select
@@ -9,9 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud import crud_document
 from app.db.session import get_db
+from app.models.schemas import DocumentCreate, Document as DocumentSchema # Import DocumentSchema
 
 # Default user ID for MVP
-DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000000"
+DEFAULT_USER_ID = UUID("00000000-0000-0000-0000-000000000000") # Changed to UUID object
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -36,7 +39,7 @@ except Exception as e:
 
 async def _save_uploaded_file(
     file: UploadFile, upload_path: Path
-) -> tuple[bytes, Path]:
+) -> Tuple[bytes, Path]:
     """Save the uploaded file to disk and return its contents and path."""
     file_extension = os.path.splitext(file.filename or "")[1]
     filename = f"{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}{file_extension}"
@@ -70,20 +73,17 @@ async def _save_uploaded_file(
 
 
 async def _save_document_to_db(
-    db: AsyncSession, user_id: str, file: UploadFile, file_path: Path, file_size: int
-) -> dict:
+    db: AsyncSession, user_id: UUID, file: UploadFile, file_path: Path, file_size: int
+) -> DocumentSchema: # Changed return type to DocumentSchema
     """Save document metadata to the database and return the created document."""
-    document_data = {
-        "user_id": user_id,
-        "file_name": file.filename,
-        "file_path": str(file_path),
-        "file_size": file_size,
-        "file_type": file.content_type,
-        "status": "processing",
-        "metadata": {"original_filename": file.filename},
-    }
+    document_data = DocumentCreate( # Changed to DocumentCreate instance
+        filename=file.filename or "unknown", # Ensure filename is not None
+        title=file.filename or "Untitled Document", # Added title
+        content_type=file.content_type or "application/octet-stream", # Ensure content_type is not None
+        size=file_size,
+    )
 
-    logger.debug(f"Document metadata: {document_data}")
+    logger.debug(f"Document metadata: {document_data.model_dump_json()}") # Use model_dump_json
     logger.info("Saving document to database...")
 
     try:
@@ -91,10 +91,10 @@ async def _save_document_to_db(
         await db.commit()
         await db.refresh(db_document)
         logger.info(f"Document saved to database with ID: {db_document.id}")
-        return db_document
+        return DocumentSchema.model_validate(db_document) # Return DocumentSchema instance
     except Exception as e:
         await db.rollback()
-        error_msg = f"Database error while saving document: {str(e)}"
+        error_msg = f"Database error while saving document: {str(e)}"\
         logger.error(error_msg, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg
@@ -114,7 +114,7 @@ def _cleanup_file(file_path: Path) -> None:
 @router.post("/upload", status_code=status.HTTP_200_OK)
 async def upload_document(
     file: UploadFile = File(...), db: AsyncSession = Depends(get_db)
-):
+) -> Dict[str, str]: # Added return type
     """
     Upload a document to the knowledge base (Development only - no auth).
 
@@ -123,7 +123,7 @@ async def upload_document(
     user_id = DEFAULT_USER_ID  # In production, verify the user exists
     logger.info(f"Starting document upload for user {user_id}")
 
-    if not file:
+    if not file.filename:
         logger.error("No file provided in the request")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="No file provided"
@@ -141,7 +141,7 @@ async def upload_document(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg
         )
 
-    file_path = None
+    file_path: Optional[Path] = None # Added type hint
     try:
         # Save the uploaded file and get its contents
         contents, file_path = await _save_uploaded_file(file, upload_path)
@@ -187,10 +187,10 @@ async def upload_document(
             logger.debug("Uploaded file handle closed")
 
 
-@router.get("", response_model=dict)
+@router.get("", response_model=Dict[str, Any]) # Changed response_model to Dict[str, Any]
 async def list_documents(
-    skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)
-):
+    skip: Optional[int] = 0, limit: Optional[int] = 100, db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]: # Added return type
     """
     Get a list of all uploaded documents.
 
@@ -200,9 +200,13 @@ async def list_documents(
     try:
         logger.info(f"Fetching documents (skip={skip}, limit={limit})")
 
+        # Handle Optional[int] for skip and limit
+        actual_skip = skip if skip is not None else 0
+        actual_limit = limit if limit is not None else 100
+
         # Get documents from the database using the correct CRUD reference
         documents = await crud_document.document.get_multi(
-            db=db, skip=skip, limit=limit
+            db=db, skip=actual_skip, limit=actual_limit
         )
 
         # Format the response according to the API spec
@@ -210,6 +214,7 @@ async def list_documents(
             {
                 "id": str(doc.id),
                 "filename": doc.file_name,
+                "title": doc.title, # Added title
                 "file_size": doc.file_size,
                 "file_type": doc.file_type,
                 "status": doc.status,
@@ -220,18 +225,18 @@ async def list_documents(
         ]
 
         # Get total count using SQLAlchemy directly
-        from app.models.db_models import Document
+        from app.models.db_models import Document # Re-import for func.count()
 
         count_result = await db.execute(select(func.count()).select_from(Document))
-        total_count = count_result.scalar()
+        total_count = count_result.scalar_one() # Use scalar_one() for single result
 
         return {
             "documents": formatted_documents,
             "pagination": {
                 "total": total_count,
-                "skip": skip,
-                "limit": limit,
-                "has_more": (skip + len(formatted_documents)) < total_count,
+                "skip": actual_skip,
+                "limit": actual_limit,
+                "has_more": (actual_skip + len(formatted_documents)) < total_count,
             },
         }
 
@@ -243,8 +248,8 @@ async def list_documents(
         )
 
 
-@router.get("/{document_id}", response_model=dict)
-async def get_document(document_id: str, db: AsyncSession = Depends(get_db)):
+@router.get("/{document_id}", response_model=Dict[str, Any]) # Changed response_model to Dict[str, Any]
+async def get_document(document_id: UUID, db: AsyncSession = Depends(get_db)) -> Dict[str, Any]: # Changed document_id type to UUID
     """
     Get details of a specific document.
 
@@ -252,18 +257,6 @@ async def get_document(document_id: str, db: AsyncSession = Depends(get_db)):
     """
     try:
         logger.info(f"Fetching document with ID: {document_id}")
-
-        # Validate document_id format
-        try:
-            from uuid import UUID
-
-            UUID(document_id)  # Will raise ValueError if not a valid UUID
-        except ValueError:
-            error_msg = f"Invalid document ID format: {document_id}"
-            logger.warning(error_msg)
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg
-            )
 
         # Get the document from the database using the correct CRUD reference
         document = await crud_document.document.get(db=db, id=document_id)
@@ -274,13 +267,11 @@ async def get_document(document_id: str, db: AsyncSession = Depends(get_db)):
             logger.warning(error_msg)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error_msg)
 
-        # Import Document here to avoid circular imports
-        from app.models.db_models import Document as DBDocument  # noqa: F401
-
         # Format the response according to the API spec
         response_data = {
             "id": str(document.id),
             "filename": document.file_name,
+            "title": document.title, # Added title
             "file_path": document.file_path,
             "file_size": document.file_size,
             "file_type": document.file_type,
@@ -288,7 +279,7 @@ async def get_document(document_id: str, db: AsyncSession = Depends(get_db)):
             "uploaded_at": document.created_at.isoformat() + "Z",
             # Convert metadata to dict if it's not already
             "metadata": (
-                dict(document.metadata) if hasattr(document.metadata, "items") else {}
+                dict(document.document_metadata) if document.document_metadata else {} # Changed to document.document_metadata
             ),
         }
 
@@ -308,27 +299,15 @@ async def get_document(document_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_document(document_id: str, db: AsyncSession = Depends(get_db)):
+async def delete_document(document_id: UUID, db: AsyncSession = Depends(get_db)) -> None: # Changed document_id type to UUID, added return type
     """
     Delete a document from the knowledge base.
 
     - **document_id**: ID of the document to delete (UUID string)
     """
-    db_document = None
+    db_document: Optional[DocumentSchema] = None # Added type hint
     try:
         logger.info(f"Deleting document with ID: {document_id}")
-
-        # Validate document_id format
-        try:
-            from uuid import UUID
-
-            UUID(document_id)  # Will raise ValueError if not a valid UUID
-        except ValueError:
-            error_msg = f"Invalid document ID format: {document_id}"
-            logger.warning(error_msg)
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg
-            )
 
         # Get the document from the database first
         db_document = await crud_document.document.get(db=db, id=document_id)
@@ -339,10 +318,10 @@ async def delete_document(document_id: str, db: AsyncSession = Depends(get_db)):
             logger.warning(error_msg)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error_msg)
 
-        file_path = db_document.file_path
+        file_path = Path(db_document.file_path) # Changed to Path object
 
         # Delete the file from storage if it exists
-        if file_path and os.path.exists(file_path):
+        if file_path and file_path.exists():
             try:
                 os.remove(file_path)
                 logger.info(f"Successfully deleted file: {file_path}")

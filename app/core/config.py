@@ -48,6 +48,10 @@ class Settings(BaseSettings):
     # Token expiration for security
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30  # Default to 30 minutes
 
+    # JWT Security
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "super-secret-key") # Change this in production!
+    ALGORITHM: str = "HS256"
+
     @field_validator("DATABASE_URI", mode="before")
     @classmethod
     def assemble_db_connection(cls, v: Optional[str], info: ValidationInfo) -> str:

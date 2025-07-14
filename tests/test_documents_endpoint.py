@@ -1,10 +1,11 @@
 import uuid
 from datetime import datetime
+from typing import Any, Dict, Generator, Tuple
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker # Import Session
 
 from app.core.security import create_access_token, get_password_hash
 from app.db.base import Base
@@ -28,7 +29,7 @@ TEST_USER_EMAIL = "test@example.com"
 TEST_USER_PASSWORD = "testpassword"
 
 
-def override_get_db():
+def override_get_db() -> Generator[Session, Any, Any]: # Added return type
     try:
         db = TestingSessionLocal()
         yield db
@@ -37,14 +38,14 @@ def override_get_db():
 
 
 @pytest.fixture(scope="module")
-def test_db():
+def test_db() -> Generator[Session, Any, Any]: # Added return type
     # Create tables
     Base.metadata.create_all(bind=engine)
 
     # Create a test user
     db = TestingSessionLocal()
     user = User(
-        id=str(uuid.uuid4()),
+        id=uuid.uuid4(), # Changed to UUID object
         email=TEST_USER_EMAIL,
         hashed_password=get_password_hash(TEST_USER_PASSWORD),
         is_active=True,
@@ -63,35 +64,36 @@ def test_db():
 
 
 @pytest.fixture
-def test_user(test_db):
+def test_user(test_db: Session) -> User: # Added return type
     return test_db.query(User).filter(User.email == TEST_USER_EMAIL).first()
 
 
 @pytest.fixture
-def test_token(test_user):
+def test_token(test_user: User) -> str: # Added return type
     return create_access_token({"sub": test_user.email})
 
 
 @pytest.fixture
-def auth_headers(test_token):
+def auth_headers(test_token: str) -> Dict[str, str]: # Added return type
     return {"Authorization": f"Bearer {test_token}"}
 
 
-def test_unauthorized_documents():
+def test_unauthorized_documents() -> None: # Added return type
     # Test without authentication
     response = client.get("/api/v1/documents")
     assert response.status_code == 401
     assert "Not authenticated" in response.json()["detail"]
 
 
-def test_list_documents(test_db, auth_headers):
+def test_list_documents(test_db: Session, auth_headers: Dict[str, str]) -> None: # Added return type
     # Create test documents
     user = test_db.query(User).filter(User.email == TEST_USER_EMAIL).first()
 
     document = Document(
-        id=str(uuid.uuid4()),
+        id=uuid.uuid4(), # Changed to UUID object
         user_id=user.id,
         file_name="test_document.txt",
+        title="test_document.txt", # Added title
         file_path="/test/path/test_document.txt",
         file_size=1024,
         file_type="text/plain",
@@ -106,12 +108,12 @@ def test_list_documents(test_db, auth_headers):
     response = client.get("/api/v1/documents", headers=auth_headers)
     assert response.status_code == 200
     documents = response.json()
-    assert isinstance(documents, list)
-    assert len(documents) > 0
-    assert documents[0]["file_name"] == "test_document.txt"
+    assert isinstance(documents, dict) # Changed to dict
+    assert len(documents["documents"]) > 0 # Changed to documents["documents"]
+    assert documents["documents"][0]["filename"] == "test_document.txt" # Changed to documents["documents"][0]["filename"]
 
 
-def test_upload_document(auth_headers):
+def test_upload_document(auth_headers: Dict[str, str]) -> None: # Added return type
     # Test document upload
     test_file = ("test_file.txt", b"Test file content", "text/plain")
     files = {"file": test_file}
@@ -123,5 +125,5 @@ def test_upload_document(auth_headers):
 
     assert response.status_code == 200
     result = response.json()
-    assert result["file_name"] == "test_upload.txt"
+    assert result["filename"] == "test_upload.txt"
     assert result["status"] == "uploaded"

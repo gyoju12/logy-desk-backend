@@ -168,3 +168,11 @@ module = [
     "pytest.*"
 ]
 ignore_missing_imports = true
+
+[tool.mypy]
+exclude = [
+    "scripts/check_and_create_db.py",
+    "scripts/reset_and_migrate.py",
+    "scripts/setup_db.py",
+    "scripts/reset_alembic.py",
+]

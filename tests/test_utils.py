@@ -18,13 +18,13 @@ class GUID(TypeDecorator):
     impl = CHAR
     cache_ok = True
 
-    def load_dialect_impl(self, dialect):
+    def load_dialect_impl(self, dialect: Any) -> Any:
         if dialect.name == "postgresql":
             return dialect.type_descriptor(PG_UUID())
         else:
             return dialect.type_descriptor(CHAR(32))
 
-    def process_bind_param(self, value, dialect):
+    def process_bind_param(self, value: Optional[UUID], dialect: Any) -> Optional[str]:
         if value is None:
             return None
         elif dialect.name == "postgresql":
@@ -35,7 +35,7 @@ class GUID(TypeDecorator):
             else:
                 return value.hex
 
-    def process_result_value(self, value, dialect):
+    def process_result_value(self, value: Optional[str], dialect: Any) -> Optional[UUID]:
         if value is None:
             return None
         else:
@@ -50,28 +50,28 @@ class JSONType(TypeDecorator):
     impl = Text
     cache_ok = True
 
-    def load_dialect_impl(self, dialect):
+    def load_dialect_impl(self, dialect: Any) -> Any:
         if dialect.name == "postgresql":
             return dialect.type_descriptor(JSONB())
         else:
             return dialect.type_descriptor(Text())
 
     def process_bind_param(
-        self, value: Optional[Dict[str, Any]], dialect
+        self, value: Optional[Dict[str, Any]], dialect: Any
     ) -> Optional[str]:
         if value is None:
             return None
         return json.dumps(value)
 
     def process_result_value(
-        self, value: Optional[str], dialect
+        self, value: Optional[str], dialect: Any
     ) -> Optional[Dict[str, Any]]:
         if value is None:
             return None
         return json.loads(value)
 
 
-def patch_models_for_sqlite():
+def patch_models_for_sqlite() -> None:
     """Patch SQLAlchemy models to use custom types for SQLite compatibility."""
     from app.models import db_models
 

@@ -1,13 +1,15 @@
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
+from typing import Any, Generator
 
 from app.db.base import Base
-from app.db.database import get_db
+from app.db.session import get_db
 from app.main import app
 from tests.test_utils import patch_models_for_sqlite
+
 
 # Use SQLite in-memory database for testing
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -29,7 +31,7 @@ Base.metadata.create_all(bind=engine)
 
 
 # Override the get_db dependency for testing
-def override_get_db():
+def override_get_db() -> Generator[Session, Any, Any]: # Added return type
     db = TestingSessionLocal()
     try:
         yield db
@@ -43,14 +45,14 @@ app.dependency_overrides[get_db] = override_get_db
 
 # Create test client
 @pytest.fixture(scope="module")
-def client():
+def client() -> Generator[TestClient, Any, Any]: # Added return type
     with TestClient(app) as c:
         yield c
 
 
 # Database session fixture
 @pytest.fixture(scope="function")
-def db_session():
+def db_session() -> Generator[Session, Any, Any]: # Added return type
     connection = engine.connect()
     transaction = connection.begin()
     session = TestingSessionLocal(bind=connection)
@@ -64,13 +66,13 @@ def db_session():
 
 # Fixture to create a test agent
 @pytest.fixture
-def test_agent(db_session):
+def test_agent(db_session: Session) -> Any: # Added return type
     from app.crud import crud_agent
     from app.models.schemas import AgentCreate
 
     agent_data = AgentCreate(
         name="Test Agent",
-        agent_type="sub",
+        agent_type="MAIN", # Changed to "MAIN"
         model="gpt-4",
         temperature=0.7,  # Fixed: temperature should be between 0 and 2
         system_prompt="Test system prompt",
@@ -80,9 +82,9 @@ def test_agent(db_session):
 
 # Fixture to create a test chat session
 @pytest.fixture
-def test_chat_session(db_session, test_agent):
+def test_chat_session(db_session: Session, test_agent: Any) -> Any: # Added return type
     from app.crud import crud_chat
     from app.models.schemas import ChatSessionCreate
 
-    session_data = ChatSessionCreate(title="Test Chat", agent_id=test_agent.id)
+    session_data = ChatSessionCreate(title="Test Chat") # Removed agent_id
     return crud_chat.chat_session.create(db=db_session, obj_in=session_data)

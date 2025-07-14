@@ -71,7 +71,7 @@ async def init_db() -> None:
 
     # Create default admin user if not exists
     try:
-        from app.crud.crud_user import create_user, get_user_by_email
+        from app.crud.crud_user import user, get_user_by_email
         from app.schemas.user import UserCreate
 
         admin_email = "admin@example.com"
@@ -86,7 +86,7 @@ async def init_db() -> None:
                     is_superuser=True,
                     is_active=True,
                 )
-                await create_user(db, user_in=user_in)
+                await user.create(db, obj_in=user_in)
                 print("Created default admin user")
     except Exception as e:
         print(f"Error creating admin user: {e}")

@@ -1,12 +1,14 @@
 from contextlib import asynccontextmanager
+from typing import AsyncGenerator, Dict, Any, List, Optional
 
 from fastapi import Depends, FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, HTMLResponse # Added HTMLResponse
 from fastapi.routing import APIRouter
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession # Changed import
+from sqlalchemy.orm import Session # Keep Session for legacy_list_agents in main.py
 
 # Import API routers
 from app.api.router import api_router
@@ -19,7 +21,7 @@ API_PREFIX = "/api/v1"
 
 # Application lifespan
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]: # Added return type
     # Startup: Initialize resources (DB connections, etc.)
     print("Starting up...")
 
@@ -50,12 +52,12 @@ app.add_middleware(
 )
 
 # Root router
-root_router = APIRouter(prefix=API_PREFIX)
+root_router = APIRouter()
 
 
 # Health check endpoint
 @root_router.get("/health", status_code=status.HTTP_200_OK, tags=["Health"])
-async def health_check():
+async def health_check() -> Dict[str, str]: # Added return type
     """Health check endpoint for monitoring"""
     return {"status": "healthy"}
 
@@ -65,7 +67,7 @@ legacy_router = APIRouter()
 
 
 @legacy_router.get("/agents", include_in_schema=False)
-async def legacy_list_agents(type: str = None, db: Session = Depends(get_db)):
+async def legacy_list_agents(type: Optional[str] = None, db: AsyncSession = Depends(get_db)) -> List[Any]: # Changed type to Optional[str], db to AsyncSession, added return type
     """
     레거시 엔드포인트: /api/agents
 
@@ -78,7 +80,7 @@ async def legacy_list_agents(type: str = None, db: Session = Depends(get_db)):
 
 
 @legacy_router.get("/chats", include_in_schema=False)
-async def legacy_list_chats(db: Session = Depends(get_db)):
+async def legacy_list_chats(db: AsyncSession = Depends(get_db)) -> List[Any]: # Changed db to AsyncSession, added return type
     """
     레거시 엔드포인트: /api/chats
 
@@ -98,13 +100,13 @@ app.include_router(legacy_router, prefix="/api")
 
 # Redirect /doc to /docs
 @app.get("/doc", include_in_schema=False)
-async def redirect_doc_to_docs():
+async def redirect_doc_to_docs() -> RedirectResponse: # Added return type
     return RedirectResponse(url="/docs")
 
 
 # Custom Swagger UI
 @app.get("/docs", include_in_schema=False)
-async def custom_swagger_ui_html():
+async def custom_swagger_ui_html() -> HTMLResponse: # Added return type
     return get_swagger_ui_html(
         openapi_url=f"{API_PREFIX}/openapi.json",
         title=app.title,
@@ -113,7 +115,7 @@ async def custom_swagger_ui_html():
 
 
 # Custom OpenAPI schema
-def custom_openapi():
+def custom_openapi() -> Dict[str, Any]: # Added return type
     if app.openapi_schema:
         return app.openapi_schema
 
@@ -133,7 +135,7 @@ def custom_openapi():
     return app.openapi_schema
 
 
-app.openapi = custom_openapi
+app.openapi_schema = custom_openapi() # Changed to assign to openapi_schema attribute
 
 if __name__ == "__main__":
     import uvicorn

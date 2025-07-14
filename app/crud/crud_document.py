@@ -10,7 +10,7 @@ from .base import CRUDBase
 
 
 class CRUDDocument(CRUDBase[Document, DocumentCreate, DocumentUpdate]):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(Document)
 
     async def get_by_filename(
@@ -30,7 +30,7 @@ class CRUDDocument(CRUDBase[Document, DocumentCreate, DocumentUpdate]):
             .offset(skip)
             .limit(limit)
         )
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     async def get_multi_by_type(
         self, db: AsyncSession, *, file_type: str, skip: int = 0, limit: int = 100
@@ -41,7 +41,7 @@ class CRUDDocument(CRUDBase[Document, DocumentCreate, DocumentUpdate]):
             .offset(skip)
             .limit(limit)
         )
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     async def search(
         self,
@@ -62,11 +62,11 @@ class CRUDDocument(CRUDBase[Document, DocumentCreate, DocumentUpdate]):
         )
 
         if owner_id:
-            stmt = stmt.filter(self.model.owner_id == owner_id)
+            stmt = stmt.filter(self.model.user_id == owner_id) # Changed to user_id
 
         stmt = stmt.offset(skip).limit(limit)
         result = await db.execute(stmt)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
 
 # Create a singleton instance

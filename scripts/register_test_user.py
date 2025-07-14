@@ -9,14 +9,14 @@ from pathlib import Path
 from sqlalchemy import select
 
 from app.core.security import get_password_hash
-from app.db.session import async_session
+from app.db.session import async_session_maker
 from app.models.db_models import User
 
 # Add the parent directory to the path so we can import app modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
-async def create_test_user():
+async def create_test_user() -> None:
     """Create a test user if they don't exist."""
     email = "test@example.com"
     password = "testpassword123"

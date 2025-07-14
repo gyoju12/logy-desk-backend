@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Any
 
 import pytest
 from sqlalchemy import create_engine, text
@@ -14,19 +15,19 @@ TEST_DATABASE_URL = "sqlite:///:memory:"
 
 
 @pytest.fixture(scope="module")
-def engine():
+def engine() -> Any:
     return create_engine(TEST_DATABASE_URL)
 
 
 @pytest.fixture(scope="module")
-def tables(engine):
+def tables(engine: Any) -> Any:
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
 
 
 @pytest.fixture
-def db_session(engine, tables):
+def db_session(engine: Any, tables: Any) -> Any:
     connection = engine.connect()
     transaction = connection.begin()
     session = sessionmaker(autocommit=False, autoflush=False, bind=engine)()
@@ -38,16 +39,16 @@ def db_session(engine, tables):
     connection.close()
 
 
-def test_db_connection(db_session):
+def test_db_connection(db_session: Any) -> None:
     # Simple test to verify database connection works
     result = db_session.execute(text("SELECT 1")).scalar()
     assert result == 1
 
 
-def test_create_document(db_session):
+def test_create_document(db_session: Any) -> None:
     # Create a test user
     user = User(
-        id=str(uuid.uuid4()),
+        id=uuid.uuid4(),
         email="test@example.com",
         hashed_password="hashed_password",
         is_active=True,
@@ -60,7 +61,7 @@ def test_create_document(db_session):
 
     # Create a test document
     document = Document(
-        id=str(uuid.uuid4()),
+        id=uuid.uuid4(),
         user_id=user.id,
         file_name="test_document.txt",
         file_path="/test/path/test_document.txt",

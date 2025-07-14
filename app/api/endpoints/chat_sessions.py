@@ -1,14 +1,15 @@
-from typing import List
+from typing import List, Dict, Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud import crud_chat
-from app.db.database import get_db
+from app.db.session import get_db # Changed import
 from app.models import schemas
 
 # Default user ID for MVP
-DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000000"
+DEFAULT_USER_ID = UUID("00000000-0000-0000-0000-000000000000") # Changed to UUID object
 
 router = APIRouter()
 
@@ -17,27 +18,27 @@ router = APIRouter()
     "", response_model=schemas.ChatSession, status_code=status.HTTP_201_CREATED
 )
 async def create_chat_session(
-    chat_session: schemas.ChatSessionCreate, db: AsyncSession = Depends(get_db)
-):
+    chat_session_in: schemas.ChatSessionCreate, db: AsyncSession = Depends(get_db)
+) -> schemas.ChatSession: # Added return type
     """
     새로운 채팅 세션을 생성합니다 (개발용 - 인증 없음).
 
     - **title**: 채팅 세션 제목 (기본값: '새 채팅')
     """
     # Use default user ID for MVP
-    chat_session_data = chat_session.dict()
+    chat_session_data = chat_session_in.model_dump() # Use model_dump()
     chat_session_data["user_id"] = DEFAULT_USER_ID
 
-    db_chat_session = await crud_chat.chat_session.create(db, obj_in=chat_session_data)
+    db_chat_session = await crud_chat.chat_session.create(db, obj_in=schemas.ChatSessionCreate(**chat_session_data)) # Pass ChatSessionCreate instance
     await db.commit()
     await db.refresh(db_chat_session)
-    return db_chat_session
+    return schemas.ChatSession.model_validate(db_chat_session) # Return ChatSession instance
 
 
 @router.get("", response_model=List[schemas.ChatSession])
 async def list_chat_sessions(
     skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)
-):
+) -> List[schemas.ChatSession]: # Added return type
     """
     모든 채팅 세션 목록을 조회합니다 (개발용 - 인증 없음).
 
@@ -46,11 +47,11 @@ async def list_chat_sessions(
     """
     # For MVP, return all chat sessions
     chat_sessions = await crud_chat.chat_session.get_multi(db, skip=skip, limit=limit)
-    return chat_sessions
+    return [schemas.ChatSession.model_validate(session) for session in chat_sessions] # Return list of ChatSession instances
 
 
 @router.get("/{session_id}", response_model=schemas.ChatSessionDetail)
-async def get_chat_session(session_id: str, db: AsyncSession = Depends(get_db)):
+async def get_chat_session(session_id: UUID, db: AsyncSession = Depends(get_db)) -> schemas.ChatSessionDetail: # Changed session_id type to UUID, added return type
     """
     특정 채팅 세션과 해당 메시지들을 조회합니다.
 
@@ -65,17 +66,17 @@ async def get_chat_session(session_id: str, db: AsyncSession = Depends(get_db)):
     messages = await crud_chat.chat_session.get_messages(db, session_id=session_id)
 
     # Pydantic 모델을 사용하여 응답 생성
-    session_data = schemas.ChatSession.from_orm(db_chat_session)
+    session_data = schemas.ChatSession.model_validate(db_chat_session) # Use model_validate()
 
     # 메시지들을 Pydantic 모델로 변환
-    message_models = [schemas.ChatMessage.from_orm(msg) for msg in messages]
+    message_models = [schemas.ChatMessage.model_validate(msg) for msg in messages] # Use model_validate()
 
     # ChatSessionDetail 모델 생성
-    return schemas.ChatSessionDetail(**session_data.dict(), messages=message_models)
+    return schemas.ChatSessionDetail(**session_data.model_dump(), messages=message_models) # Use model_dump()
 
 
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_chat_session(session_id: str, db: AsyncSession = Depends(get_db)):
+async def delete_chat_session(session_id: UUID, db: AsyncSession = Depends(get_db)) -> None: # Changed session_id type to UUID, added return type
     """
     채팅 세션을 삭제합니다.
 

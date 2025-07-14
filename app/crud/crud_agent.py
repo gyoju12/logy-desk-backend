@@ -23,7 +23,7 @@ class CRUDAgent(CRUDBase[Agent, AgentCreate, AgentUpdate]):
             .offset(skip)
             .limit(limit)
         )
-        return result.scalars().all()
+        return list(result.scalars().all())
 
 
 agent = CRUDAgent(Agent)
