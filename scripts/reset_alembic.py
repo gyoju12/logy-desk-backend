@@ -1,9 +1,8 @@
 """Script to reset Alembic version and prepare for a fresh migration."""
 
 from sqlalchemy import text
-from sqlalchemy.orm import Session
 
-from app.db.session import SessionLocal, engine
+from app.db.session import SessionLocal
 
 
 def reset_alembic():

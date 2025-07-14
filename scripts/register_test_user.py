@@ -36,6 +36,4 @@ async def create_test_user():
 
 
 if __name__ == "__main__":
-    import asyncio
-
     asyncio.run(create_test_user())

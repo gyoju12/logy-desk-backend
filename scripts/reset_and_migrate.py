@@ -2,7 +2,6 @@ import os
 import sys
 
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
 from alembic import command
