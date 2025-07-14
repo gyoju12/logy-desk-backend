@@ -160,7 +160,7 @@ extend-ignore = "E203, E501, W503"
 extend-exclude = "venv, .git, __pycache__, .mypy_cache, .pytest_cache, _build, build, dist, uploads"
 per-file-ignores = "__init__.py: F401"
 
-[tool.mypy.overrides]
+[[tool.mypy.overrides]]
 module = [
     "sqlalchemy.*",
     "alembic.*",
