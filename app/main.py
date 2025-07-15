@@ -1,14 +1,13 @@
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Dict, Any, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from fastapi import Depends, FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import RedirectResponse, HTMLResponse # Added HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse  # Added HTMLResponse
 from fastapi.routing import APIRouter
-from sqlalchemy.ext.asyncio import AsyncSession # Changed import
-from sqlalchemy.orm import Session # Keep Session for legacy_list_agents in main.py
+from sqlalchemy.ext.asyncio import AsyncSession  # Changed import
 
 # Import API routers
 from app.api.router import api_router
@@ -21,7 +20,7 @@ API_PREFIX = "/api/v1"
 
 # Application lifespan
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]: # Added return type
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # Added return type
     # Startup: Initialize resources (DB connections, etc.)
     print("Starting up...")
 
@@ -57,7 +56,7 @@ root_router = APIRouter()
 
 # Health check endpoint
 @root_router.get("/health", status_code=status.HTTP_200_OK, tags=["Health"])
-async def health_check() -> Dict[str, str]: # Added return type
+async def health_check() -> Dict[str, str]:  # Added return type
     """Health check endpoint for monitoring"""
     return {"status": "healthy"}
 
@@ -67,20 +66,25 @@ legacy_router = APIRouter()
 
 
 @legacy_router.get("/agents", include_in_schema=False)
-async def legacy_list_agents(type: Optional[str] = None, db: AsyncSession = Depends(get_db)) -> List[Any]: # Changed type to Optional[str], db to AsyncSession, added return type
+async def legacy_list_agents(
+    type: Optional[str] = None, db: AsyncSession = Depends(get_db)
+) -> List[Any]:  # Changed type to Optional[str], db to AsyncSession, added return type
     """
     레거시 엔드포인트: /api/agents
 
     - type: 필터링할 에이전트 유형 (main, sub)
     """
-    agents = await crud_agent.agent.get_multi(db)
     if type in ["main", "sub"]:
-        agents = [a for a in agents if a.agent_type == type]
+        agents = await crud_agent.agent.get_multi_by_type(db, agent_type=type)
+    else:
+        agents = await crud_agent.agent.get_multi(db)
     return agents
 
 
 @legacy_router.get("/chats", include_in_schema=False)
-async def legacy_list_chats(db: AsyncSession = Depends(get_db)) -> List[Any]: # Changed db to AsyncSession, added return type
+async def legacy_list_chats(
+    db: AsyncSession = Depends(get_db),
+) -> List[Any]:  # Changed db to AsyncSession, added return type
     """
     레거시 엔드포인트: /api/chats
 
@@ -100,13 +104,13 @@ app.include_router(legacy_router, prefix="/api")
 
 # Redirect /doc to /docs
 @app.get("/doc", include_in_schema=False)
-async def redirect_doc_to_docs() -> RedirectResponse: # Added return type
+async def redirect_doc_to_docs() -> RedirectResponse:  # Added return type
     return RedirectResponse(url="/docs")
 
 
 # Custom Swagger UI
 @app.get("/docs", include_in_schema=False)
-async def custom_swagger_ui_html() -> HTMLResponse: # Added return type
+async def custom_swagger_ui_html() -> HTMLResponse:  # Added return type
     return get_swagger_ui_html(
         openapi_url=f"{API_PREFIX}/openapi.json",
         title=app.title,
@@ -115,7 +119,7 @@ async def custom_swagger_ui_html() -> HTMLResponse: # Added return type
 
 
 # Custom OpenAPI schema
-def custom_openapi() -> Dict[str, Any]: # Added return type
+def custom_openapi() -> Dict[str, Any]:  # Added return type
     if app.openapi_schema:
         return app.openapi_schema
 
@@ -135,7 +139,7 @@ def custom_openapi() -> Dict[str, Any]: # Added return type
     return app.openapi_schema
 
 
-app.openapi_schema = custom_openapi() # Changed to assign to openapi_schema attribute
+app.openapi_schema = custom_openapi()  # Changed to assign to openapi_schema attribute
 
 if __name__ == "__main__":
     import uvicorn
