@@ -1,11 +1,12 @@
 import asyncio
 import json
 import logging
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple
 
 import httpx
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageParam
+from typing_extensions import cast
 
 from app.core.config import settings
 
@@ -120,7 +121,7 @@ class LLMClient:
     async def _call_llm_api(
         self,
         model: str,
-        messages: List[ChatCompletionMessageParam], # Changed type hint
+        messages: List[ChatCompletionMessageParam],  # Changed type hint
         temperature: float,
         max_tokens: int,
     ) -> str:
@@ -186,7 +187,7 @@ class LLMClient:
     async def _try_model_with_retries(
         self,
         model: str,
-        messages: List[ChatCompletionMessageParam], # Changed type hint
+        messages: List[Dict[str, str]],  # Corrected type hint
         temperature: float,
         max_tokens: int,
     ) -> Optional[str]:
@@ -195,11 +196,12 @@ class LLMClient:
         self._current_model = model
         logger.info(f"Trying model: {model}")
 
-        for attempt in range(self._max_retries):
+        max_retries = 3
+        for attempt in range(max_retries):
             try:
                 response_text = await self._call_llm_api(
                     model=model,
-                    messages=messages,
+                    messages=cast(list[ChatCompletionMessageParam], messages),
                     temperature=temperature,
                     max_tokens=max_tokens,
                 )
@@ -214,7 +216,7 @@ class LLMClient:
     async def _handle_retry(self, attempt: int, model: str, error: Exception) -> bool:
         """Handle retry logic for failed attempts."""
         if attempt < self._max_retries - 1:
-            retry_delay = self._retry_delay * (2**attempt)
+            retry_delay = 1.0 * (2**attempt)
             logger.warning(
                 f"Attempt {attempt + 1} failed for model {model}: "
                 f"{str(error)}. Retrying in {retry_delay:.1f}s..."
@@ -266,7 +268,7 @@ class LLMClient:
 
         # Try each model until we get a successful response
         models_to_try = self._get_models_to_try(current_model)
-        last_error: Optional[Exception] = None # Added type hint
+        last_error: Optional[Exception] = None  # Added type hint
 
         for model in models_to_try:
             if model in self._tried_models:
