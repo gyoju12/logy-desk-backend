@@ -167,7 +167,7 @@ write_to = "app/_version.py"
 [tool.flake8]
 max-line-length = 88
 extend-ignore = "E203, E501, W503"
-extend-exclude = "venv, .git, __pycache__, .mypy_cache, .pytest_cache, _build, build, dist, uploads"
+extend-exclude = "venv, .git, __pycache__, .mypy_cache, _build, build, dist, uploads" 
 per-file-ignores = "__init__.py: F401"
 
 [[tool.mypy.overrides]]
