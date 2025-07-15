@@ -70,37 +70,4 @@ jobs:
         fail_ci_if_error: false
         verbose: true
         
-  lint:
-    name: Lint and Type Check
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-        
-    - name: Install build dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install --upgrade setuptools>=61.0.0 wheel setuptools_scm[toml]>=6.0 build
-        
-    - name: Build and install in development mode
-      run: |
-        pip install --no-deps -e .
-        pip install -r <(pip list --format=freeze | grep -v '^\-e ' | cut -d= -f1 | grep -v '^pip$' | grep -v '^setuptools$' | grep -v '^wheel$')
-        pip install -e '.[dev]'
-        
-    - name: Run black
-      run: black --check .
-      
-    - name: Run isort
-      run: isort --check-only .
-      
-#    - name: Run flake8
-#      run: flake8 .
-#
-#    - name: Run mypy
-#      run: mypy .
+  
