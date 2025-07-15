@@ -2,8 +2,7 @@ import logging
 from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase, Session
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
@@ -22,7 +21,9 @@ async_engine = create_async_engine(
     pool_size=5,
     max_overflow=10,
     poolclass=NullPool if settings.TESTING else None,
-    connect_args={"check_same_thread": False} if settings.TESTING else {},  # SQLite thread safety fix
+    connect_args=(
+        {"check_same_thread": False} if settings.TESTING else {}
+    ),  # SQLite thread safety fix
 )
 
 # Create async session factory
@@ -32,7 +33,7 @@ async_session_maker = async_sessionmaker(
     autocommit=False,
     autoflush=False,
     expire_on_commit=False,
-    future=True  # SQLAlchemy 2.0 future compatibility
+    future=True,  # SQLAlchemy 2.0 future compatibility
 )
 
 # Create sync session factory
@@ -67,9 +68,6 @@ def get_sync_session() -> Session:
     Dependency function that returns a synchronous database session.
     """
     return sync_session_maker()
-
-
-
 
 
 # Initialize database

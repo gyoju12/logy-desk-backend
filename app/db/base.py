@@ -29,7 +29,9 @@ async_engine = create_async_engine(
     pool_size=5,
     max_overflow=10,
     poolclass=NullPool if settings.TESTING else None,
-    connect_args={"check_same_thread": False} if settings.TESTING else {},  # SQLite thread safety fix
+    connect_args=(
+        {"check_same_thread": False} if settings.TESTING else {}
+    ),  # SQLite thread safety fix
 )
 
 # Create async session factory
@@ -39,7 +41,7 @@ async_session_maker = async_sessionmaker(
     expire_on_commit=False,
     autoflush=False,
     autocommit=False,
-    future=True  # SQLAlchemy 2.0 future compatibility
+    future=True,  # SQLAlchemy 2.0 future compatibility
 )
 
 # Create sync engine for migrations
@@ -69,6 +71,7 @@ SessionMaker = async_sessionmaker
 
 # SQLAlchemy 2.0 Engine
 Engine = create_async_engine
+
 
 # SQLAlchemy 2.0 Session Context Manager
 class SessionManager:

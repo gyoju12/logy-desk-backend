@@ -18,7 +18,9 @@ class AgentBase(BaseModel):
 
 
 class AgentCreate(AgentBase):
-    user_id: Optional[UUID] = Field(None, description="ID of the user who owns this agent")
+    user_id: Optional[UUID] = Field(
+        None, description="ID of the user who owns this agent"
+    )
 
 
 class AgentUpdate(BaseModel):
