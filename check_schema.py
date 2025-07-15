@@ -20,7 +20,7 @@ async def check_database_schema() -> None:
                 """
             )
         )
-        tables = [row[0] for row in await result.fetchall()]
+        tables = [row[0] for row in result.all()]
         print("\n📋 Database tables:")
         for table in tables:
             print(f"- {table}")
@@ -38,7 +38,7 @@ async def check_database_schema() -> None:
             )
 
             print("  Columns:")
-            for col in result.fetchall():
+            for col in result.all():
                 print(
                     f"  - {col[0]}: {col[1]} "
                     f"({'NULL' if col[2] == 'YES' else 'NOT NULL'})"
@@ -55,7 +55,7 @@ async def check_database_schema() -> None:
                 )
             )
 
-            indexes = result.fetchall()
+            indexes = result.all()
             if indexes:
                 print("  Indexes:")
                 for idx in indexes:

@@ -1,5 +1,10 @@
-from app.db.base import Base, async_engine
+import os
+import sys
 
+from dotenv import load_dotenv
+from sqlalchemy import create_engine, inspect
+
+from app.db.base import async_engine
 
 # Add the project root to the Python path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -39,8 +44,10 @@ def create_tables() -> None:
     """Create all database tables."""
     from app.db.base import Base
 
-    print("
-Creating database tables...")
+    print(
+        """
+Creating database tables..."""
+    )
     try:
         Base.metadata.create_all(bind=async_engine)
         print("✅ Tables created successfully!")
@@ -48,8 +55,10 @@ Creating database tables...")
         # List all tables
         inspector = inspect(async_engine)
         tables = inspector.get_table_names()
-        print("
-Tables in the database:")
+        print(
+            """
+Available tables:"""
+        )
         for table in tables:
             print(f"- {table}")
 
@@ -58,9 +67,7 @@ Tables in the database:")
 
 
 def main() -> None:
-    print("=== Database Setup Utility ===
-")
-
+    print("=== Database Setup Utility ===")
 
     # Test connection first
     if not test_connection():

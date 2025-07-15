@@ -1,11 +1,11 @@
 import uuid
 from datetime import datetime
-from typing import Any, Dict, Generator, Tuple
+from typing import Any, Dict, Generator, Tuple, cast
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker # Import Session
+from sqlalchemy.orm import Session, sessionmaker  # Import Session
 
 from app.core.security import create_access_token, get_password_hash
 from app.db.base import Base
@@ -29,7 +29,7 @@ TEST_USER_EMAIL = "test@example.com"
 TEST_USER_PASSWORD = "testpassword"
 
 
-def override_get_db() -> Generator[Session, Any, Any]: # Added return type
+def override_get_db() -> Generator[Session, Any, Any]:  # Added return type
     try:
         db = TestingSessionLocal()
         yield db
@@ -38,14 +38,14 @@ def override_get_db() -> Generator[Session, Any, Any]: # Added return type
 
 
 @pytest.fixture(scope="module")
-def test_db() -> Generator[Session, Any, Any]: # Added return type
+def test_db() -> Generator[Session, Any, Any]:  # Added return type
     # Create tables
     Base.metadata.create_all(bind=engine)
 
     # Create a test user
     db = TestingSessionLocal()
     user = User(
-        id=uuid.uuid4(), # Changed to UUID object
+        id=uuid.uuid4(),  # Changed to UUID object
         email=TEST_USER_EMAIL,
         hashed_password=get_password_hash(TEST_USER_PASSWORD),
         is_active=True,
@@ -64,66 +64,74 @@ def test_db() -> Generator[Session, Any, Any]: # Added return type
 
 
 @pytest.fixture
-def test_user(test_db: Session) -> User: # Added return type
-    return test_db.query(User).filter(User.email == TEST_USER_EMAIL).first()
+def test_user(test_db: Session) -> User:  # Added return type
+    return cast(User, test_db.query(User).filter(User.email == TEST_USER_EMAIL).first())
 
 
 @pytest.fixture
-def test_token(test_user: User) -> str: # Added return type
+def test_token(test_user: User) -> str:  # Added return type
     return create_access_token({"sub": test_user.email})
 
 
 @pytest.fixture
-def auth_headers(test_token: str) -> Dict[str, str]: # Added return type
+def auth_headers(test_token: str) -> Dict[str, str]:  # Added return type
     return {"Authorization": f"Bearer {test_token}"}
 
 
-def test_unauthorized_documents() -> None: # Added return type
+def test_unauthorized_documents() -> None:  # Added return type
     # Test without authentication
     response = client.get("/api/v1/documents")
     assert response.status_code == 401
     assert "Not authenticated" in response.json()["detail"]
 
 
-def test_list_documents(test_db: Session, auth_headers: Dict[str, str]) -> None: # Added return type
+@pytest.mark.asyncio
+async def test_list_documents(
+    test_db: SessionManager, auth_headers: Dict[str, str]
+) -> None:
     # Create test documents
-    user = test_db.query(User).filter(User.email == TEST_USER_EMAIL).first()
+    async with test_db() as db:
+        user = await db.query(User).filter(User.email == TEST_USER_EMAIL).first()
+        assert user is not None
 
-    document = Document(
-        id=uuid.uuid4(), # Changed to UUID object
-        user_id=user.id,
-        file_name="test_document.txt",
-        title="test_document.txt", # Added title
-        file_path="/test/path/test_document.txt",
-        file_size=1024,
-        file_type="text/plain",
-        status="uploaded",
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
-    )
-    test_db.add(document)
-    test_db.commit()
+        document = Document(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            file_name="test_document.txt",
+            title="test_document.txt",
+            file_path="/test/path/test_document.txt",
+            file_size=1024,
+            file_type="text/plain",
+            status="uploaded",
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+        db.add(document)
+        await db.commit()
 
-    # Test listing documents
-    response = client.get("/api/v1/documents", headers=auth_headers)
-    assert response.status_code == 200
-    documents = response.json()
-    assert isinstance(documents, dict) # Changed to dict
-    assert len(documents["documents"]) > 0 # Changed to documents["documents"]
-    assert documents["documents"][0]["filename"] == "test_document.txt" # Changed to documents["documents"][0]["filename"]
+        # Test listing documents
+        async with AsyncClient(app=app, base_url="http://test") as client:
+            response = await client.get("/api/v1/documents", headers=auth_headers)
+            assert response.status_code == 200
+            documents = response.json()
+            assert isinstance(documents, dict)
+            assert len(documents["documents"]) > 0
+            assert documents["documents"][0]["filename"] == "test_document.txt"
 
 
-def test_upload_document(auth_headers: Dict[str, str]) -> None: # Added return type
+@pytest.mark.asyncio
+async def test_upload_document(auth_headers: Dict[str, str]) -> None:
     # Test document upload
     test_file = ("test_file.txt", b"Test file content", "text/plain")
     files = {"file": test_file}
     data = {"file_name": "test_upload.txt"}
 
-    response = client.post(
-        "/api/v1/documents/upload", headers=auth_headers, files=files, data=data
-    )
+    async with AsyncClient(app=app, base_url="http://test") as client:
+        response = await client.post(
+            "/api/v1/documents/upload", headers=auth_headers, files=files, data=data
+        )
 
-    assert response.status_code == 200
-    result = response.json()
-    assert result["filename"] == "test_upload.txt"
-    assert result["status"] == "uploaded"
+        assert response.status_code == 200
+        result = response.json()
+        assert result["filename"] == "test_upload.txt"
+        assert result["status"] == "uploaded"

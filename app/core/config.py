@@ -1,7 +1,7 @@
 import os
 from typing import List, Optional
 
-from pydantic import PostgresDsn, field_validator, ValidationInfo
+from pydantic import PostgresDsn, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -48,8 +48,13 @@ class Settings(BaseSettings):
     # Token expiration for security
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30  # Default to 30 minutes
 
+    ADMIN_EMAIL: str = os.getenv("ADMIN_EMAIL", "admin@example.com")
+    ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "adminpass")
+
     # JWT Security
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "super-secret-key") # Change this in production!
+    SECRET_KEY: str = os.getenv(
+        "SECRET_KEY", "super-secret-key"
+    )  # Change this in production!
     ALGORITHM: str = "HS256"
 
     @field_validator("DATABASE_URI", mode="before")
@@ -60,11 +65,11 @@ class Settings(BaseSettings):
 
         values = info.data
         return (
-            f"postgresql+asyncpg://"\
-            f"{values.get('POSTGRES_USER')}:"\
-            f"{values.get('POSTGRES_PASSWORD')}@"\
-            f"{values.get('POSTGRES_SERVER')}:"\
-            f"{values.get('POSTGRES_PORT')}/"\
+            f"postgresql+asyncpg://"
+            f"{values.get('POSTGRES_USER')}:"
+            f"{values.get('POSTGRES_PASSWORD')}@"
+            f"{values.get('POSTGRES_SERVER')}:"
+            f"{values.get('POSTGRES_PORT')}/"
             f"{values.get('POSTGRES_DB')}"
         )
 

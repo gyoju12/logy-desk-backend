@@ -1,5 +1,7 @@
 """Script to reset Alembic version and prepare for a fresh migration."""
 
+from sqlalchemy import text
+
 from app.db.session import get_sync_session
 
 
@@ -7,7 +9,7 @@ def reset_alembic() -> None:
     """Reset the Alembic version table and prepare for a fresh migration."""
     try:
         # Create a new session
-        db = get_sync_session() # Use get_sync_session
+        db = get_sync_session()  # Use get_sync_session
         conn = db.connection()
 
         # Drop all tables except alembic_version

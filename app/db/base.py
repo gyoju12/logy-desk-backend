@@ -4,7 +4,7 @@ from typing import AsyncGenerator, Generator
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
@@ -20,16 +20,16 @@ def get_async_db_url(sync_url: str) -> str:
     return url_str
 
 
-# Create async engine
+# Create async engine with thread safety
 async_engine = create_async_engine(
     get_async_db_url(str(settings.DATABASE_URI)),
     echo=settings.DEBUG,
-    future=True,
     pool_pre_ping=True,
     pool_recycle=3600,
     pool_size=5,
     max_overflow=10,
     poolclass=NullPool if settings.TESTING else None,
+    connect_args={"check_same_thread": False} if settings.TESTING else {},  # SQLite thread safety fix
 )
 
 # Create async session factory
@@ -39,6 +39,7 @@ async_session_maker = async_sessionmaker(
     expire_on_commit=False,
     autoflush=False,
     autocommit=False,
+    future=True  # SQLAlchemy 2.0 future compatibility
 )
 
 # Create sync engine for migrations
@@ -56,6 +57,33 @@ SessionLocal = sessionmaker(
 
 # Base class for all models
 Base = declarative_base()
+
+# SQLAlchemy 2.0 Model Base
+Model = DeclarativeBase
+
+# SQLAlchemy 2.0 Session
+Session = AsyncSession
+
+# SQLAlchemy 2.0 Session Maker
+SessionMaker = async_sessionmaker
+
+# SQLAlchemy 2.0 Engine
+Engine = create_async_engine
+
+# SQLAlchemy 2.0 Session Context Manager
+class SessionManager:
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def __aenter__(self):
+        return self.session
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if exc_type:
+            await self.session.rollback()
+        else:
+            await self.session.commit()
+        await self.session.close()
 
 
 # Async session dependency

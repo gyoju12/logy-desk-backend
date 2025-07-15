@@ -1,10 +1,11 @@
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Generator
 
 import pytest
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine, event, text
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import Session, sessionmaker
 
 # Import models
 from app.db.base import Base
@@ -14,23 +15,37 @@ from app.models.db_models import Document, User
 TEST_DATABASE_URL = "sqlite:///:memory:"
 
 
-@pytest.fixture(scope="module")
-def engine() -> Any:
-    return create_engine(TEST_DATABASE_URL)
+@pytest.fixture(scope="function")
+def engine() -> Generator[Engine, None, None]:
+    """Create a new in-memory SQLite database for each test function."""
+    db_url = "sqlite:///:memory:"
+    _engine = create_engine(db_url, connect_args={"check_same_thread": False})
+
+    @event.listens_for(_engine, "connect")
+    def set_sqlite_pragma(dbapi_connection: Any, connection_record: Any) -> None:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+    yield _engine
+    _engine.dispose()
 
 
-@pytest.fixture(scope="module")
-def tables(engine: Any) -> Any:
+@pytest.fixture(scope="function")
+def tables(engine: Engine) -> Generator[None, None, None]:
+    """Create all tables in the database."""
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
 
 
-@pytest.fixture
-def db_session(engine: Any, tables: Any) -> Any:
+@pytest.fixture(scope="function")
+def db_session(engine: Engine, tables: Any) -> Generator[Session, None, None]:
+    """Create a new database session for each test function."""
     connection = engine.connect()
     transaction = connection.begin()
-    session = sessionmaker(autocommit=False, autoflush=False, bind=engine)()
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    session = SessionLocal()
 
     yield session
 
@@ -39,13 +54,13 @@ def db_session(engine: Any, tables: Any) -> Any:
     connection.close()
 
 
-def test_db_connection(db_session: Any) -> None:
+def test_db_connection(db_session: Session) -> None:
     # Simple test to verify database connection works
     result = db_session.execute(text("SELECT 1")).scalar()
     assert result == 1
 
 
-def test_create_document(db_session: Any) -> None:
+def test_create_document(db_session: Session) -> None:
     # Create a test user
     user = User(
         id=uuid.uuid4(),

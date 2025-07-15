@@ -11,7 +11,7 @@ project_root = str(Path(__file__).resolve().parent.parent)
 sys.path.append(project_root)
 
 
-async def check_default_user():
+async def check_default_user() -> None:
     print("🔍 Checking if default user exists...")
 
     async with async_session_maker() as session:

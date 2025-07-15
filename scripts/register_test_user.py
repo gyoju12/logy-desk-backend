@@ -9,19 +9,19 @@ from pathlib import Path
 from sqlalchemy import select
 
 from app.core.security import get_password_hash
-from app.db.session import async_session_maker
+from app.db.database import AsyncSessionLocal
 from app.models.db_models import User
 
 # Add the parent directory to the path so we can import app modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
-async def create_test_user() -> None:
+async def main() -> None:
     """Create a test user if they don't exist."""
     email = "test@example.com"
     password = "testpassword123"
 
-    async with async_session() as session:
+    async with AsyncSessionLocal() as session:
         # Check if user already exists
         result = await session.execute(select(User).filter(User.email == email))
         user = result.scalars().first()
@@ -38,4 +38,4 @@ async def create_test_user() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(create_test_user())
+    asyncio.run(main())

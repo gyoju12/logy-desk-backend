@@ -31,17 +31,21 @@ class GUID(TypeDecorator):
             return str(value)
         else:
             if not isinstance(value, UUID):
-                return str(UUID(value).hex)
+                return str(UUID(value))
             else:
-                return value.hex
+                return str(value)
 
-    def process_result_value(self, value: Optional[str], dialect: Any) -> Optional[UUID]:
+    def process_result_value(
+        self, value: Optional[str], dialect: Any
+    ) -> Optional[UUID]:
         if value is None:
             return None
-        else:
-            if not isinstance(value, UUID):
-                value = UUID(value)
+        if isinstance(value, UUID):
             return value
+        try:
+            return UUID(value)
+        except (ValueError, TypeError):
+            return None
 
 
 class JSONType(TypeDecorator):
@@ -59,16 +63,21 @@ class JSONType(TypeDecorator):
     def process_bind_param(
         self, value: Optional[Dict[str, Any]], dialect: Any
     ) -> Optional[str]:
-        if value is None:
-            return None
-        return json.dumps(value)
+        if value is not None:
+            return json.dumps(value)
+        return None
 
     def process_result_value(
         self, value: Optional[str], dialect: Any
     ) -> Optional[Dict[str, Any]]:
-        if value is None:
-            return None
-        return json.loads(value)
+        if value is not None:
+            try:
+                return Dict[str, Any](
+                    json.loads(value)
+                )  # Explicitly cast to Dict[str, Any]
+            except json.JSONDecodeError:
+                return None
+        return None
 
 
 def patch_models_for_sqlite() -> None:

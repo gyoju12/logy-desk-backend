@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.models.models import Agent
-from app.models.schemas import AgentCreate, AgentUpdate
+from app.schemas.agent import AgentCreate, AgentUpdate
 
 from .base import CRUDBase
 

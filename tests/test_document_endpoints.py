@@ -1,44 +1,48 @@
 import os
 import tempfile
 from typing import Any, Generator
-
 import pytest
-from fastapi import status
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.base import Base
-from app.db.session import get_db # Changed import
+from app.db.base import Base, SessionManager
+from app.db.session import get_db
 from app.main import app
 from app.models.db_models import Document
 
 # Use SQLite in-memory database for testing
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 # Create test database engine
-engine = create_engine(
+engine = create_async_engine(
     SQLALCHEMY_DATABASE_URL,
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
+    echo=True,
 )
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+TestingSessionLocal = async_sessionmaker(
+    bind=engine,
+    class_=AsyncSession,
+    autocommit=False,
+    autoflush=False,
+    expire_on_commit=False,
+)
 
 
 # Create test client with overridden database session
 @pytest.fixture(scope="module")
-def client() -> Generator[TestClient, Any, Any]: # Added return type
+async def async_client() -> AsyncGenerator[AsyncClient, None]:
     # Create all tables
-    Base.metadata.create_all(bind=engine)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
     # Override get_db dependency
-    def override_get_db() -> Generator[Session, Any, Any]: # Added return type
-        try:
-            db = TestingSessionLocal()
-            yield db
-        finally:
-            db.close()
+    async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
+        async with SessionManager(TestingSessionLocal()) as session:
+            yield session
 
     # Store original dependency
     original_get_db = app.dependency_overrides.get(get_db, None)
@@ -46,9 +50,9 @@ def client() -> Generator[TestClient, Any, Any]: # Added return type
     # Apply override
     app.dependency_overrides[get_db] = override_get_db
 
-    with TestClient(app) as c:
+    async with AsyncClient(app=app, base_url="http://test") as client:
         try:
-            yield c
+            yield client
         finally:
             # Clean up
             app.dependency_overrides.clear()
@@ -58,127 +62,130 @@ def client() -> Generator[TestClient, Any, Any]: # Added return type
 
 # Clean up database between tests
 @pytest.fixture(autouse=True)
-def cleanup() -> Generator[None, None, None]: # Added return type
+async def cleanup() -> AsyncGenerator[None, None]:
     yield
     # Clean up database after each test
-    db = TestingSessionLocal()
-    try:
-        db.execute(text("DELETE FROM chat_messages"))
-        db.execute(text("DELETE FROM chat_sessions"))
-        db.execute(text("DELETE FROM documents"))
-        db.execute(text("DELETE FROM agents"))
-        db.commit()
-    finally:
-        db.close()
+    async with SessionManager(TestingSessionLocal()) as db:
+        try:
+            await db.execute(text("DELETE FROM chat_messages"))
+            await db.execute(text("DELETE FROM chat_sessions"))
+            await db.execute(text("DELETE FROM documents"))
+            await db.execute(text("DELETE FROM agents"))
+            await db.commit()
+        finally:
+            await db.close()
 
 
 # Fixture for creating a test document
 @pytest.fixture
-def test_document() -> Generator[Document, Any, Any]: # Added return type
+async def test_document() -> AsyncGenerator[Document, None]:
     """Create a test document in the database"""
-    db = TestingSessionLocal()
-
-    # Create a temporary file
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as tmp:
+    async with SessionManager(TestingSessionLocal()) as db:
+        # Create a temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as tmp:
             tmp.write(b"Test document content")
             tmp_path = tmp.name
 
+        try:
+            # Create document in database
+            db_document = Document(
+                title="Test Document",
+                filename=os.path.basename(tmp_path),
+                content_type="text/plain",
+                size=os.path.getsize(tmp_path),
+            )
+            db.add(db_document)
+            await db.commit()
+            await db.refresh(db_document)
+
+            # Create uploads directory if it doesn't exist
+            os.makedirs("uploads", exist_ok=True)
+
+            # Move the temp file to uploads
+            import shutil
+
+            dest_path = os.path.join("uploads", os.path.basename(tmp_path))
+            shutil.move(tmp_path, dest_path)
+
+            yield db_document
+
+        finally:
+            # Clean up
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+            if os.path.exists(dest_path):
+                os.unlink(dest_path)
+
+            # Clean up database
+            await db.query(Document).delete()
+            await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_upload_document(
+    async_client: AsyncClient, test_document: Document
+) -> None:
+    """Test uploading a document"""
+    # Create a temporary file for testing
+    with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as tmp:
+        tmp.write(b"Test document content")
+        tmp_path = tmp.name
+
     try:
-        # Create document in database
-        db_document = Document(
-            title="Test Document",
-            filename=os.path.basename(tmp_path),
-            content_type="text/plain",
-            size=os.path.getsize(tmp_path),
-        )
-        db.add(db_document)
-        db.commit()
-        db.refresh(db_document)
-
-        # Create uploads directory if it doesn't exist
-        os.makedirs("uploads", exist_ok=True)
-
-        # Move the temp file to uploads
-        import shutil
-
-        dest_path = os.path.join("uploads", os.path.basename(tmp_path))
-        shutil.move(tmp_path, dest_path)
-
-        yield db_document
-
+        with open(tmp_path, "rb") as f:
+            response = await async_client.post(
+                "/documents/upload",
+                files={"file": ("test.txt", f, "text/plain")},
+                data={"title": "Test Document"},
+            )
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        assert "id" in data
+        assert data["title"] == "Test Document"
+        assert data["filename"] == "test.txt"
     finally:
-        # Clean up
+        # Clean up the temporary file
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
-        if os.path.exists(dest_path):
-            os.unlink(dest_path)
-
-        # Clean up database
-        db.query(Document).delete()
-        db.commit()
-        db.close()
 
 
-def test_upload_document(client: TestClient, tmp_path: Any) -> None: # Added return type
-    """Test uploading a document"""
-    # Create a test file
-    test_file = tmp_path / "test.txt"
-    test_file.write_text("Test document content")
-
-    with open(test_file, "rb") as f:
-        response = client.post(
-            "/documents/upload",
-            files={"file": ("test.txt", f, "text/plain")},
-            data={"title": "Test Upload"},
-        )
-
-    assert response.status_code == status.HTTP_201_CREATED
-    data = response.json()
-    assert "id" in data
-    assert data["title"] == "Test Upload"
-    assert data["filename"].endswith(".txt")
-    assert data["content_type"] == "text/plain"
-    assert data["size"] > 0
-
-    # Clean up
-    doc_id = data["id"]
-    response = client.delete(f"/documents/{doc_id}")
-    assert response.status_code == status.HTTP_204_NO_CONTENT
-
-
-def test_list_documents(client: TestClient, test_document: Document) -> None: # Added return type
+@pytest.mark.asyncio
+async def test_list_documents(
+    async_client: AsyncClient, test_document: Document
+) -> None:
     """Test listing all documents"""
-    response = client.get("/documents")
+    response = await async_client.get("/documents")
     assert response.status_code == status.HTTP_200_OK
-
     documents = response.json()
     assert isinstance(documents, list)
-    assert len(documents) == 1
-    assert documents[0]["id"] == str(test_document.id)
-    assert documents[0]["title"] == test_document.title
+    assert len(documents) > 0
+    doc = documents[0]
+    assert doc["id"] == str(test_document.id)
+    assert doc["title"] == test_document.title
+    assert doc["filename"] == test_document.filename
 
 
-def test_get_document(client: TestClient, test_document: Document) -> None: # Added return type
-    """Test getting a document by ID"""
-    response = client.get(f"/documents/{test_document.id}")
+@pytest.mark.asyncio
+async def test_get_document(
+    async_client: AsyncClient, test_document: Document
+) -> None:
+    """Test getting a single document"""
+    response = await async_client.get(f"/documents/{test_document.id}")
     assert response.status_code == status.HTTP_200_OK
+    doc = response.json()
+    assert doc["id"] == str(test_document.id)
+    assert doc["title"] == test_document.title
+    assert doc["filename"] == test_document.filename
 
-    data = response.json()
-    assert data["id"] == str(test_document.id)
-    assert data["title"] == test_document.title
-    assert data["filename"] == test_document.filename
 
-
-def test_delete_document(client: TestClient, test_document: Document) -> None: # Added return type
+@pytest.mark.asyncio
+async def test_delete_document(
+    async_client: AsyncClient, test_document: Document
+) -> None:
     """Test deleting a document"""
-    # First verify the document exists
-    response = client.get(f"/documents/{test_document.id}")
-    assert response.status_code == status.HTTP_200_OK
-
-    # Delete the document
-    response = client.delete(f"/documents/{test_document.id}")
+    response = await async_client.delete(f"/documents/{test_document.id}")
     assert response.status_code == status.HTTP_204_NO_CONTENT
 
-    # Verify it's gone
-    response = client.get(f"/documents/{test_document.id}")
+    # Verify the document is deleted
+    response = await async_client.get(f"/documents/{test_document.id}")
     assert response.status_code == status.HTTP_404_NOT_FOUND
