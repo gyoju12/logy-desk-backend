@@ -11,7 +11,7 @@ name = "logy-desk-backend"
 dynamic = ["version"]
 description = "FastAPI 기반의 멀티 에이전트 채팅 백엔드 애플리케이션"
 readme = "README.md"
-requires-python = ">=3.9,<3.13"
+requires-python = ">=3.9,<3.14"
 license = {text = "MIT"}
 authors = [
     {name = "Logy Desk Team", email = "dev@logydesk.com"}
@@ -151,6 +151,10 @@ check_untyped_defs = true
 no_implicit_optional = true
 strict_optional = true
 exclude = [
+    "build/",
+    "dist/",
+    "venv/",
+    ".venv/",
     "scripts/check_and_create_db.py",
     "scripts/reset_and_migrate.py",
     "scripts/setup_db.py",
