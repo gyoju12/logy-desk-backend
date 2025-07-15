@@ -1,9 +1,9 @@
 import logging
 from typing import AsyncGenerator
 
-from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import sessionmaker as create_sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Session
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 # Create async database engine
 DATABASE_URL = str(settings.DATABASE_URI)
 
-# Create async engine
+# Create async engine with thread safety
 async_engine = create_async_engine(
     DATABASE_URL,
     echo=settings.DEBUG,
@@ -22,12 +22,23 @@ async_engine = create_async_engine(
     pool_size=5,
     max_overflow=10,
     poolclass=NullPool if settings.TESTING else None,
+    connect_args={"check_same_thread": False} if settings.TESTING else {},  # SQLite thread safety fix
 )
 
 # Create async session factory
 async_session_maker = async_sessionmaker(
     bind=async_engine,
     class_=AsyncSession,
+    autocommit=False,
+    autoflush=False,
+    expire_on_commit=False,
+    future=True  # SQLAlchemy 2.0 future compatibility
+)
+
+# Create sync session factory
+sync_session_maker = sessionmaker(
+    bind=async_engine.sync_engine,
+    class_=Session,
     autocommit=False,
     autoflush=False,
     expire_on_commit=False,
@@ -50,44 +61,44 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             raise
 
 
-def get_sync_session():
-    engine = create_engine(
-        str(settings.DATABASE_URI).replace("+asyncpg", ""),
-        pool_pre_ping=True,
-    )
-    return create_sessionmaker(autocommit=False, autoflush=False, bind=engine)()
+# Dependency to get sync DB session
+def get_sync_session() -> Session:
+    """
+    Dependency function that returns a synchronous database session.
+    """
+    return sync_session_maker()
+
+
+
 
 
 # Initialize database
 async def init_db() -> None:
     """Initialize the database with base data."""
-    # Import models to ensure they are registered with SQLAlchemy
     from app.db.base import Base
     from app.models.db_models import User  # noqa: F401
 
-    # Create tables
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    # Create default admin user if not exists
     try:
-        from app.crud.crud_user import user, get_user_by_email
+        from app.crud.crud_user import user as user_crud
         from app.schemas.user import UserCreate
 
-        admin_email = "admin@example.com"
-        admin_password = "admin123"
+        admin_email = settings.ADMIN_EMAIL
+        admin_password = settings.ADMIN_PASSWORD
 
         async with async_session_maker() as db:
-            admin = await get_user_by_email(db, email=admin_email)
-            if not admin:
+            db_user = await user_crud.get_by_email(db, email=admin_email)
+            if not db_user:
                 user_in = UserCreate(
                     email=admin_email,
                     password=admin_password,
                     is_superuser=True,
                     is_active=True,
                 )
-                await user.create(db, obj_in=user_in)
-                print("Created default admin user")
+                await user_crud.create(db, obj_in=user_in)
+                logger.info("Created default admin user")
     except Exception as e:
-        print(f"Error creating admin user: {e}")
+        logger.error(f"Error creating admin user: {e}")
         raise
