@@ -11,10 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud import crud_document
 from app.db.session import get_db
-from app.models.schemas import DocumentCreate, Document as DocumentSchema # Import DocumentSchema
+from app.schemas.document import Document as DocumentSchema
+from app.schemas.document import DocumentCreate
 
 # Default user ID for MVP
-DEFAULT_USER_ID = UUID("00000000-0000-0000-0000-000000000000") # Changed to UUID object
+DEFAULT_USER_ID = UUID("00000000-0000-0000-0000-000000000000")  # Changed to UUID object
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -74,27 +75,31 @@ async def _save_uploaded_file(
 
 async def _save_document_to_db(
     db: AsyncSession, user_id: UUID, file: UploadFile, file_path: Path, file_size: int
-) -> DocumentSchema: # Changed return type to DocumentSchema
+) -> DocumentSchema:
     """Save document metadata to the database and return the created document."""
-    document_data = DocumentCreate( # Changed to DocumentCreate instance
-        filename=file.filename or "unknown", # Ensure filename is not None
-        title=file.filename or "Untitled Document", # Added title
-        content_type=file.content_type or "application/octet-stream", # Ensure content_type is not None
-        size=file_size,
+    document_data = DocumentCreate(
+        user_id=user_id,
+        title=file.filename or "Untitled Document",
+        file_name=file.filename or "unknown",
+        file_path=str(file_path),
+        file_size=file_size,
+        file_type=file.content_type or "application/octet-stream",
+        status="processing",
+        error_message=None,
+        document_metadata=None,
     )
 
-    logger.debug(f"Document metadata: {document_data.model_dump_json()}") # Use model_dump_json
+    logger.debug(f"Document metadata: {document_data.model_dump_json()}")
     logger.info("Saving document to database...")
 
     try:
         db_document = await crud_document.document.create(db=db, obj_in=document_data)
-        await db.commit()
+        await db.flush()
         await db.refresh(db_document)
         logger.info(f"Document saved to database with ID: {db_document.id}")
-        return DocumentSchema.model_validate(db_document) # Return DocumentSchema instance
+        return DocumentSchema.model_validate(db_document)
     except Exception as e:
-        await db.rollback()
-        error_msg = f"Database error while saving document: {str(e)}"\
+        error_msg = f"Database error while saving document: {str(e)}"
         logger.error(error_msg, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg
@@ -114,7 +119,7 @@ def _cleanup_file(file_path: Path) -> None:
 @router.post("/upload", status_code=status.HTTP_200_OK)
 async def upload_document(
     file: UploadFile = File(...), db: AsyncSession = Depends(get_db)
-) -> Dict[str, str]: # Added return type
+) -> Dict[str, str]:
     """
     Upload a document to the knowledge base (Development only - no auth).
 
@@ -141,7 +146,7 @@ async def upload_document(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg
         )
 
-    file_path: Optional[Path] = None # Added type hint
+    file_path: Optional[Path] = None
     try:
         # Save the uploaded file and get its contents
         contents, file_path = await _save_uploaded_file(file, upload_path)
@@ -187,10 +192,12 @@ async def upload_document(
             logger.debug("Uploaded file handle closed")
 
 
-@router.get("", response_model=Dict[str, Any]) # Changed response_model to Dict[str, Any]
+@router.get("", response_model=Dict[str, Any])
 async def list_documents(
-    skip: Optional[int] = 0, limit: Optional[int] = 100, db: AsyncSession = Depends(get_db)
-) -> Dict[str, Any]: # Added return type
+    skip: Optional[int] = 0,
+    limit: Optional[int] = 100,
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
     """
     Get a list of all uploaded documents.
 
@@ -214,7 +221,7 @@ async def list_documents(
             {
                 "id": str(doc.id),
                 "filename": doc.file_name,
-                "title": doc.title, # Added title
+                "title": doc.title,
                 "file_size": doc.file_size,
                 "file_type": doc.file_type,
                 "status": doc.status,
@@ -225,10 +232,10 @@ async def list_documents(
         ]
 
         # Get total count using SQLAlchemy directly
-        from app.models.db_models import Document # Re-import for func.count()
+        from app.models.db_models import Document
 
         count_result = await db.execute(select(func.count()).select_from(Document))
-        total_count = count_result.scalar_one() # Use scalar_one() for single result
+        total_count = count_result.scalar_one()
 
         return {
             "documents": formatted_documents,
@@ -248,8 +255,10 @@ async def list_documents(
         )
 
 
-@router.get("/{document_id}", response_model=Dict[str, Any]) # Changed response_model to Dict[str, Any]
-async def get_document(document_id: UUID, db: AsyncSession = Depends(get_db)) -> Dict[str, Any]: # Changed document_id type to UUID
+@router.get("/{document_id}", response_model=Dict[str, Any])
+async def get_document(
+    document_id: UUID, db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
     """
     Get details of a specific document.
 
@@ -271,7 +280,7 @@ async def get_document(document_id: UUID, db: AsyncSession = Depends(get_db)) ->
         response_data = {
             "id": str(document.id),
             "filename": document.file_name,
-            "title": document.title, # Added title
+            "title": document.title,
             "file_path": document.file_path,
             "file_size": document.file_size,
             "file_type": document.file_type,
@@ -279,7 +288,7 @@ async def get_document(document_id: UUID, db: AsyncSession = Depends(get_db)) ->
             "uploaded_at": document.created_at.isoformat() + "Z",
             # Convert metadata to dict if it's not already
             "metadata": (
-                dict(document.document_metadata) if document.document_metadata else {} # Changed to document.document_metadata
+                dict(document.document_metadata) if document.document_metadata else {}
             ),
         }
 
@@ -299,13 +308,15 @@ async def get_document(document_id: UUID, db: AsyncSession = Depends(get_db)) ->
 
 
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_document(document_id: UUID, db: AsyncSession = Depends(get_db)) -> None: # Changed document_id type to UUID, added return type
+async def delete_document(
+    document_id: UUID, db: AsyncSession = Depends(get_db)
+) -> None:
     """
     Delete a document from the knowledge base.
 
     - **document_id**: ID of the document to delete (UUID string)
     """
-    db_document: Optional[DocumentSchema] = None # Added type hint
+    db_document: Optional[DocumentSchema] = None
     try:
         logger.info(f"Deleting document with ID: {document_id}")
 
@@ -318,7 +329,7 @@ async def delete_document(document_id: UUID, db: AsyncSession = Depends(get_db))
             logger.warning(error_msg)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error_msg)
 
-        file_path = Path(db_document.file_path) # Changed to Path object
+        file_path = Path(db_document.file_path)
 
         # Delete the file from storage if it exists
         if file_path and file_path.exists():
@@ -332,18 +343,15 @@ async def delete_document(document_id: UUID, db: AsyncSession = Depends(get_db))
 
         # Delete the document from the database
         await crud_document.document.remove(db=db, id=document_id)
-        await db.commit()
 
         logger.info(f"Successfully deleted document with ID: {document_id}")
         return None
 
     except HTTPException:
         # Re-raise HTTP exceptions
-        await db.rollback()
         raise
 
     except Exception as e:
-        await db.rollback()
         error_msg = f"Error deleting document {document_id}: {str(e)}"
         logger.error(error_msg, exc_info=True)
         raise HTTPException(

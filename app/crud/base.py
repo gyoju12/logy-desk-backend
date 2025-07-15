@@ -1,4 +1,4 @@
-from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
+from typing import Any, Generic, Optional, Type, TypeVar, Union
 from uuid import UUID
 
 from fastapi.encoders import jsonable_encoder
@@ -26,74 +26,35 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
 
     async def get_multi(
         self, db: AsyncSession, *, skip: int = 0, limit: int = 100
-    ) -> List[ModelType]:
+    ) -> list[ModelType]:
         result = await db.execute(select(self.model).offset(skip).limit(limit))
-        return list(result.scalars().all()) # Ensure list type
+        return list(result.scalars().all())
 
     async def create(self, db: AsyncSession, *, obj_in: CreateSchemaType) -> ModelType:
-        from datetime import datetime, timezone
-
-        # Get current time with timezone
-        now = datetime.now(timezone.utc)
-
-        # Convert input to dict and handle time fields
         obj_in_data = jsonable_encoder(obj_in)
-
-        # Create model instance with timezone-aware datetimes
-        db_obj = self.model(**obj_in_data)  # type: ignore
-
-        # Ensure created_at and updated_at are set with timezone
-        if hasattr(db_obj, "created_at") and db_obj.created_at is None:
-            db_obj.created_at = now
-        if hasattr(db_obj, "updated_at") and db_obj.updated_at is None:
-            db_obj.updated_at = now
-
+        db_obj = self.model(**obj_in_data)
         db.add(db_obj)
-        try:
-            await db.commit()
-            await db.refresh(db_obj)
-            return db_obj
-        except Exception as e:
-            await db.rollback()
-            raise e
+        await db.flush()
+        await db.refresh(db_obj)
+        return db_obj
 
     async def update(
-        self,
-        db: AsyncSession,
-        *,
-        db_obj: ModelType,
-        obj_in: Union[UpdateSchemaType, Dict[str, Any]],
+        self, db: AsyncSession, *, db_obj: ModelType, obj_in: UpdateSchemaType
     ) -> ModelType:
-        from datetime import datetime, timezone
-
         obj_data = jsonable_encoder(db_obj)
-        if isinstance(obj_in, dict):
-            update_data = obj_in
-        else:
-            update_data = obj_in.dict(exclude_unset=True)
-
-        # Update the model instance
+        update_data = obj_in.dict(exclude_unset=True)
         for field in obj_data:
             if field in update_data:
                 setattr(db_obj, field, update_data[field])
-
-        # Update updated_at with timezone-aware datetime
-        if hasattr(db_obj, "updated_at"):
-            db_obj.updated_at = datetime.now(timezone.utc)
-
         db.add(db_obj)
-        try:
-            await db.commit()
-            await db.refresh(db_obj)
-            return db_obj
-        except Exception as e:
-            await db.rollback()
-            raise e
+        await db.flush()
+        await db.refresh(db_obj)
+        return db_obj
 
-    async def remove(self, db: AsyncSession, *, id: Union[int, UUID]) -> ModelType:
+    async def remove(self, db: AsyncSession, *, id: Any) -> Optional[ModelType]:
         result = await db.execute(select(self.model).filter(self.model.id == id))
         obj = result.scalars().first()
         if obj:
             await db.delete(obj)
-            await db.commit()
+            await db.flush()
         return obj
