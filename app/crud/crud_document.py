@@ -4,7 +4,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.db_models import Document
-from app.models.schemas import DocumentCreate, DocumentUpdate
+from app.schemas.document import DocumentCreate, DocumentUpdate
 
 from .base import CRUDBase
 
@@ -56,13 +56,13 @@ class CRUDDocument(CRUDBase[Document, DocumentCreate, DocumentUpdate]):
         stmt = select(self.model).filter(
             or_(
                 self.model.title.ilike(search),
-                self.model.filename.ilike(search),
+                self.model.file_name.ilike(search),
                 self.model.content_type.ilike(search),
             )
         )
 
         if owner_id:
-            stmt = stmt.filter(self.model.user_id == owner_id) # Changed to user_id
+            stmt = stmt.filter(self.model.user_id == owner_id)  # Changed to user_id
 
         stmt = stmt.offset(skip).limit(limit)
         result = await db.execute(stmt)

@@ -1,14 +1,14 @@
 from typing import AsyncGenerator
 
 from sqlalchemy import create_engine
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
 from app.models.db_models import Agent, Base
 
 
-def get_async_db_url(sync_url) -> str:
+def get_async_db_url(sync_url: str) -> str:
     """Convert a synchronous PostgreSQL URL to an async one."""
     url_str = str(sync_url)  # Convert URL object to string first
     if url_str.startswith("postgresql://"):
@@ -17,8 +17,9 @@ def get_async_db_url(sync_url) -> str:
 
 
 # Create async engine and sessionmaker
+db_url = str(settings.DATABASE_URI) if settings.DATABASE_URI else ""
 async_engine = create_async_engine(
-    get_async_db_url(settings.DATABASE_URI), echo=settings.DEBUG, future=True
+    get_async_db_url(db_url), echo=settings.DEBUG, future=True
 )
 
 AsyncSessionLocal = async_sessionmaker(
@@ -47,29 +48,4 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 
-def init_db() -> None:
-    """Initialize the database (synchronously)."""
-    # Create all tables
-    Base.metadata.create_all(bind=sync_engine)
 
-    # Create a new session
-    db = SessionLocal()
-
-    try:
-        # Create default main agent if it doesn't exist
-        if not db.query(Agent).filter(Agent.id == "agent_001").first():
-            default_agent = Agent(
-                id="agent_001",
-                name="기본 에이전트",
-                agent_type="main",
-                model="gpt-4",
-                temperature=7,
-                system_prompt="당신은 도움이 되는 AI 어시스턴트입니다.",
-            )
-            db.add(default_agent)
-            db.commit()
-    except Exception as e:
-        print(f"Error initializing database: {e}")
-        db.rollback()
-    finally:
-        db.close()

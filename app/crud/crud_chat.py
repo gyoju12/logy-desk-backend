@@ -1,10 +1,11 @@
 from typing import List, Optional
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.models.models import ChatMessage, ChatSession
-from app.models.schemas import (
+from app.schemas.chat import (
     ChatMessageCreate,
     ChatMessageUpdate,
     ChatSessionCreate,
@@ -16,7 +17,7 @@ from .base import CRUDBase
 
 class CRUDChatSession(CRUDBase[ChatSession, ChatSessionCreate, ChatSessionUpdate]):
     async def get_messages(
-        self, db: AsyncSession, *, session_id: str, skip: int = 0, limit: int = 100
+        self, db: AsyncSession, *, session_id: UUID, skip: int = 0, limit: int = 100
     ) -> List[ChatMessage]:
         result = await db.execute(
             select(ChatMessage)
@@ -38,7 +39,7 @@ class CRUDChatSession(CRUDBase[ChatSession, ChatSessionCreate, ChatSessionUpdate
 
 class CRUDChatMessage(CRUDBase[ChatMessage, ChatMessageCreate, ChatMessageUpdate]):
     async def create_with_session(
-        self, db: AsyncSession, *, obj_in: ChatMessageCreate, session_id: str
+        self, db: AsyncSession, *, obj_in: ChatMessageCreate, session_id: UUID
     ) -> ChatMessage:
         # Create model - let the database handle the timestamps
         db_obj = ChatMessage(
@@ -47,16 +48,12 @@ class CRUDChatMessage(CRUDBase[ChatMessage, ChatMessageCreate, ChatMessageUpdate
         )
 
         db.add(db_obj)
-        try:
-            await db.commit()
-            await db.refresh(db_obj)
-            return db_obj
-        except Exception as e:
-            await db.rollback()
-            raise e
+        await db.flush()
+        await db.refresh(db_obj)
+        return db_obj
 
     async def get_multi_by_session(
-        self, db: AsyncSession, *, session_id: str, skip: int = 0, limit: int = 100
+        self, db: AsyncSession, *, session_id: UUID, skip: int = 0, limit: int = 100
     ) -> List[ChatMessage]:
         """
         특정 세션의 채팅 메시지 목록을 조회합니다.
