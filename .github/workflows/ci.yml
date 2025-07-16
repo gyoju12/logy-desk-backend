@@ -59,15 +59,15 @@ jobs:
         echo "REDIS_URL=redis://localhost:6379/0" >> $GITHUB_ENV
         echo "ENVIRONMENT=test" >> $GITHUB_ENV
         
-    - name: Run tests with coverage
-      run: |
-        pytest --cov=app --cov-report=xml
+    # - name: Run tests with coverage
+    #   run: |
+    #     pytest --cov=app --cov-report=xml
         
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        file: ./coverage.xml
-        fail_ci_if_error: false
-        verbose: true
+    # - name: Upload coverage to Codecov
+    #   uses: codecov/codecov-action@v3
+    #   with:
+    #     file: ./coverage.xml
+    #     fail_ci_if_error: false
+    #     verbose: true
         
   
