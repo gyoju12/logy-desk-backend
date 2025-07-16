@@ -1,0 +1,134 @@
+[build-system]
+requires = [
+    "setuptools>=61.0",
+    "wheel",
+    "setuptools_scm[toml]>=6.0"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "logy-desk-backend"
+dynamic = ["version"]
+description = "FastAPI 기반의 채팅 백엔드 애플리케이션"
+readme = "README.md"
+requires-python = ">=3.9,<3.14"
+license = {text = "MIT"}
+authors = [
+    {name = "Logy Desk Team", email = "dev@logydesk.com"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Framework :: FastAPI",
+    "Topic :: Software Development :: Libraries :: Application Frameworks"
+]
+dependencies = [
+    # Core
+    "fastapi>=0.104.1",
+    "uvicorn[standard]>=0.24.0",
+    "python-dotenv>=1.0.0",
+    "python-multipart>=0.0.6",
+    
+    # Database
+    "sqlalchemy[asyncio]>=2.0.23",
+    "alembic>=1.13.0",
+    "asyncpg>=0.29.0",
+    "psycopg2-binary>=2.9.9",
+    "greenlet>=3.0.0",
+    
+    # Pydantic
+    "pydantic>=2.5.2",
+    "pydantic-settings>=2.1.0",
+    "email-validator>=2.2.0",
+    
+    # LLM Providers
+    "openai>=1.3.5",
+    "httpx>=0.25.1",
+    
+    # Async
+    "anyio>=3.7.1",
+    
+    # Security
+    "passlib[bcrypt]>=1.7.4",
+    "python-jose[cryptography]>=3.3.0",
+    "python-multipart>=0.0.6",
+    
+    # Utils
+    "python-dateutil>=2.8.2",
+    "pytz>=2023.3",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.4.3",
+    "pytest-asyncio>=0.21.1",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.12.0",
+    "httpx>=0.25.1"
+]
+dev = [
+    "black>=23.11.0",
+    "isort>=5.12.0",
+    "pre-commit>=3.5.0",
+    "ipdb>=0.13.13"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/your-org/logy-desk-backend"
+"Bug Tracker" = "https://github.com/your-org/logy-desk-backend/issues"
+
+[project.scripts]
+logy-desk = "app.main:app"
+
+[tool.setuptools.packages.find]
+where = ["./"]
+include = ["app*"]
+exclude = ["tests*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
+python_classes = "Test*"
+addopts = "-v --cov=app --cov-report=term-missing"
+
+[tool.black]
+line-length = 88
+target-version = ['py39']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+    \.git
+  | \.mypy_cache
+  | \.pytest_cache
+  | \.venv
+  | venv
+  | uploads
+  | __pypackages__
+  | _build
+  | build
+  | dist
+  | node_modules
+  | alembic/versions
+  | app/_version\.py
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 88
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+skip = ["venv/", "alembic/versions", "app/_version.py"]
+
+[tool.setuptools_scm]
+write_to = "app/_version.py"
