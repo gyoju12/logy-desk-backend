@@ -1,4 +1,5 @@
 from typing import List, Optional
+from uuid import UUID
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,26 +49,19 @@ class CRUDDocument(CRUDBase[Document, DocumentCreate, DocumentUpdate]):
         db: AsyncSession,
         *,
         query: str,
-        owner_id: Optional[str] = None,
         skip: int = 0,
         limit: int = 100,
     ) -> List[Document]:
-        search = f"%{query}%"
-        stmt = select(self.model).filter(
-            or_(
-                self.model.title.ilike(search),
-                self.model.file_name.ilike(search),
-                self.model.content_type.ilike(search),
+        result = await db.execute(
+            select(self.model)
+            .filter(
+                self.model.file_name.ilike(f"%{query}%")
             )
+            .offset(skip)
+            .limit(limit)
         )
-
-        if owner_id:
-            stmt = stmt.filter(self.model.user_id == owner_id)  # Changed to user_id
-
-        stmt = stmt.offset(skip).limit(limit)
-        result = await db.execute(stmt)
         return list(result.scalars().all())
 
 
-# Create a singleton instance
+# Create singleton instance
 document = CRUDDocument()

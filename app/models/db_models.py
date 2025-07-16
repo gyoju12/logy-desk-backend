@@ -155,68 +155,23 @@ class Document(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
-
     user_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )
     file_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
     file_path: Mapped[str] = mapped_column(String(512), nullable=False)
     file_size: Mapped[int] = mapped_column(Integer, nullable=False)
     file_type: Mapped[str] = mapped_column(String(50), nullable=False)
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="processing"
-    )  # Status can be: 'processing', 'processed', 'error'
+    )
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     document_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(
         "metadata", JSONB, nullable=True
-    )  # Renamed from metadata to document_metadata,
-    # but keeping 'metadata' as the actual column name
-
-    # Relationships
-    chunks: Mapped[List["DocumentChunk"]] = relationship(
-        "DocumentChunk", back_populates="document"
     )
 
     def __repr__(self) -> str:
-        return (
-            f"<Document(id={self.id}, file_name={self.file_name}, status={self.status}>"
-        )
-
-
-class DocumentChunk(Base):
-    """Document chunks for RAG processing."""
-
-    __tablename__ = "document_chunks"
-
-    id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid4
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
-
-    document_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("documents.id"), nullable=False
-    )
-    chunk_text: Mapped[str] = mapped_column(Text, nullable=False)
-    chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
-    vector_id: Mapped[Optional[str]] = mapped_column(
-        String(100), nullable=True
-    )  # Reference to vector in ChromaDB
-
-    # Relationships
-    document: Mapped["Document"] = relationship("Document", back_populates="chunks")
-
-    def __repr__(self) -> str:
-        return (
-            f"<DocumentChunk(id={self.id}, "
-            f"document_id={self.document_id}, "
-            f"index={self.chunk_index})>"
-        )
+        return f"<Document(id={self.id}, file_name='{self.file_name}', status='{self.status}')>"
 
 
 class ChatSession(Base):

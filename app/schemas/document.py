@@ -8,7 +8,6 @@ from pydantic import BaseModel, Field
 class DocumentBase(BaseModel):
     """Base schema for document operations."""
 
-    title: str = Field(..., description="Title of the document")
     file_name: str = Field(..., description="Original filename")
     file_path: str = Field(..., description="Path where the file is stored")
     file_size: int = Field(..., description="Size of the file in bytes")
@@ -31,7 +30,6 @@ class DocumentCreate(DocumentBase):
 class DocumentUpdate(BaseModel):
     """Schema for updating an existing document."""
 
-    title: Optional[str] = Field(None, description="New title for the document")
     status: Optional[str] = Field(None, description="Updated processing status")
     error_message: Optional[str] = Field(
         None, description="Error message if processing failed"
@@ -54,20 +52,18 @@ class DocumentInDBBase(DocumentBase):
 
 
 class Document(DocumentInDBBase):
-    """Schema for document responses."""
-
+    """Schema for returning a document."""
     pass
 
 
 class DocumentInDB(DocumentInDBBase):
     """Schema for documents retrieved from the database."""
-
     pass
 
 
 class DocumentList(BaseModel):
     """Schema for a list of documents with pagination info."""
-
+    
     items: List[Document] = Field(..., description="List of documents")
     total: int = Field(..., description="Total number of documents")
     skip: int = Field(0, description="Number of documents skipped")

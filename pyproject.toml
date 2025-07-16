@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "logy-desk-backend"
 dynamic = ["version"]
-description = "FastAPI 기반의 멀티 에이전트 채팅 백엔드 애플리케이션"
+description = "FastAPI 기반의 채팅 백엔드 애플리케이션"
 readme = "README.md"
 requires-python = ">=3.9,<3.14"
 license = {text = "MIT"}
@@ -45,15 +45,7 @@ dependencies = [
     # Pydantic
     "pydantic>=2.5.2",
     "pydantic-settings>=2.1.0",
-    
-    # RAG and AI
-    "langchain>=0.1.0",
-    "langchain-core>=0.1.0",
-    "langchain-community>=0.0.10",
-    "langchain-text-splitters>=0.0.1",
-    "langsmith>=0.0.24",
-    "chromadb>=0.4.22",
-    "sentence-transformers>=2.2.2",
+    "email-validator>=2.2.0",
     
     # LLM Providers
     "openai>=1.3.5",

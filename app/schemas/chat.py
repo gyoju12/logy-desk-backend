@@ -78,19 +78,18 @@ class ChatSessionInDBBase(ChatSessionBase):
     user_id: UUID
     created_at: datetime
     updated_at: datetime
-    messages: List[ChatMessage]
 
     class Config:
         from_attributes = True
 
 
 class ChatSession(ChatSessionInDBBase):
-    """Schema for representing a chat session with its messages."""
+    """Schema for representing a chat session."""
 
     pass
 
 
-class ChatSessionDetail(ChatSession):
+class ChatSessionDetail(ChatSessionInDBBase):
     """Schema for representing a chat session with all its messages."""
 
     messages: List[ChatMessage] = Field(

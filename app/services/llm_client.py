@@ -240,6 +240,7 @@ class LLMClient:
         messages: List[Dict[str, str]],
         temperature: float = 0.7,
         max_tokens: int = 2000,
+        model: Optional[str] = None,
         retry_count: int = 0,
     ) -> str:
         """
@@ -249,6 +250,7 @@ class LLMClient:
             messages: 메시지 리스트 (role과 content 키를 가진 딕셔너리)
             temperature: 샘플링 온도 (0.0 ~ 2.0)
             max_tokens: 생성할 최대 토큰 수
+            model: 사용할 모델 이름 (None이면 기본 모델 사용)
             retry_count: 현재 재시도 횟수 (내부용)
 
         Returns:
@@ -263,20 +265,21 @@ class LLMClient:
         self._validate_messages(messages)
         temperature, max_tokens = self._sanitize_parameters(temperature, max_tokens)
 
-        current_model = self.get_model_name()
+        # 전달받은 모델이 있으면 사용, 없으면 기본 모델 사용
+        current_model = model if model else self.get_model_name()
         self._log_request(messages, current_model)
 
         # Try each model until we get a successful response
         models_to_try = self._get_models_to_try(current_model)
         last_error: Optional[Exception] = None  # Added type hint
 
-        for model in models_to_try:
-            if model in self._tried_models:
+        for model_to_try in models_to_try:
+            if model_to_try in self._tried_models:
                 continue
 
             try:
                 response = await self._try_model_with_retries(
-                    model=model,
+                    model=model_to_try,
                     messages=messages,
                     temperature=temperature,
                     max_tokens=max_tokens,

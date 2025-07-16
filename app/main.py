@@ -1,18 +1,25 @@
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator, Dict, List, Optional
+import logging
+import traceback
 
-from fastapi import Depends, FastAPI, status
+from fastapi import Depends, FastAPI, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import HTMLResponse, RedirectResponse  # Added HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.routing import APIRouter
-from sqlalchemy.ext.asyncio import AsyncSession  # Changed import
+from sqlalchemy.ext.asyncio import AsyncSession  
 
 # Import API routers
 from app.api.router import api_router
 from app.crud import crud_agent
 from app.db.session import get_db
+from app.core.logging_config import setup_logging
+
+# 로깅 설정 초기화
+setup_logging(level="DEBUG")
+logger = logging.getLogger(__name__)
 
 # API version
 API_PREFIX = "/api/v1"
@@ -20,14 +27,14 @@ API_PREFIX = "/api/v1"
 
 # Application lifespan
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # Added return type
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  
     # Startup: Initialize resources (DB connections, etc.)
-    print("Starting up...")
+    logger.info("Starting up Logy-Desk API...")
 
     yield
 
     # Shutdown: Clean up resources
-    print("Shutting down...")
+    logger.info("Shutting down Logy-Desk API...")
 
 
 # Initialize FastAPI app
@@ -35,16 +42,30 @@ app = FastAPI(
     title="Logy-Desk API",
     description="Logy-Desk Backend API Documentation",
     version="1.0.0",
-    docs_url=None,  # Disable default docs to customize
-    redoc_url=None,  # Disable default redoc
+    docs_url=None,  
+    redoc_url=None,  
     openapi_url=f"{API_PREFIX}/openapi.json",
     lifespan=lifespan,
 )
 
+# Exception handler middleware
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.error(f"Global exception caught: {str(exc)}")
+    logger.error(f"Request URL: {request.url}")
+    logger.error(f"Request method: {request.method}")
+    logger.error(f"Traceback: {traceback.format_exc()}")
+    
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal server error: {str(exc)}"}
+    )
+
+
 # CORS middleware configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
+    allow_origins=["*"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -56,7 +77,7 @@ root_router = APIRouter()
 
 # Health check endpoint
 @root_router.get("/health", status_code=status.HTTP_200_OK, tags=["Health"])
-async def health_check() -> Dict[str, str]:  # Added return type
+async def health_check() -> Dict[str, str]:  
     """Health check endpoint for monitoring"""
     return {"status": "healthy"}
 
@@ -68,7 +89,7 @@ legacy_router = APIRouter()
 @legacy_router.get("/agents", include_in_schema=False)
 async def legacy_list_agents(
     type: Optional[str] = None, db: AsyncSession = Depends(get_db)
-) -> List[Any]:  # Changed type to Optional[str], db to AsyncSession, added return type
+) -> List[Any]:  
     """
     레거시 엔드포인트: /api/agents
 
@@ -84,7 +105,7 @@ async def legacy_list_agents(
 @legacy_router.get("/chats", include_in_schema=False)
 async def legacy_list_chats(
     db: AsyncSession = Depends(get_db),
-) -> List[Any]:  # Changed db to AsyncSession, added return type
+) -> List[Any]:  
     """
     레거시 엔드포인트: /api/chats
 
@@ -104,13 +125,13 @@ app.include_router(legacy_router, prefix="/api")
 
 # Redirect /doc to /docs
 @app.get("/doc", include_in_schema=False)
-async def redirect_doc_to_docs() -> RedirectResponse:  # Added return type
+async def redirect_doc_to_docs() -> RedirectResponse:  
     return RedirectResponse(url="/docs")
 
 
 # Custom Swagger UI
 @app.get("/docs", include_in_schema=False)
-async def custom_swagger_ui_html() -> HTMLResponse:  # Added return type
+async def custom_swagger_ui_html() -> HTMLResponse:  
     return get_swagger_ui_html(
         openapi_url=f"{API_PREFIX}/openapi.json",
         title=app.title,
@@ -119,7 +140,7 @@ async def custom_swagger_ui_html() -> HTMLResponse:  # Added return type
 
 
 # Custom OpenAPI schema
-def custom_openapi() -> Dict[str, Any]:  # Added return type
+def custom_openapi() -> Dict[str, Any]:  
     if app.openapi_schema:
         return app.openapi_schema
 
@@ -139,7 +160,7 @@ def custom_openapi() -> Dict[str, Any]:  # Added return type
     return app.openapi_schema
 
 
-app.openapi_schema = custom_openapi()  # Changed to assign to openapi_schema attribute
+app.openapi_schema = custom_openapi()  
 
 if __name__ == "__main__":
     import uvicorn

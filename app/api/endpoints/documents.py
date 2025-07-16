@@ -79,7 +79,6 @@ async def _save_document_to_db(
     """Save document metadata to the database and return the created document."""
     document_data = DocumentCreate(
         user_id=user_id,
-        title=file.filename or "Untitled Document",
         file_name=file.filename or "unknown",
         file_path=str(file_path),
         file_size=file_size,
@@ -93,7 +92,7 @@ async def _save_document_to_db(
     logger.info("Saving document to database...")
 
     try:
-        db_document = await crud_document.document.create(db=db, obj_in=document_data)
+        db_document = await crud_document.document.create(db, obj_in=document_data)
         await db.flush()
         await db.refresh(db_document)
         logger.info(f"Document saved to database with ID: {db_document.id}")
@@ -221,7 +220,6 @@ async def list_documents(
             {
                 "id": str(doc.id),
                 "filename": doc.file_name,
-                "title": doc.title,
                 "file_size": doc.file_size,
                 "file_type": doc.file_type,
                 "status": doc.status,
@@ -280,7 +278,6 @@ async def get_document(
         response_data = {
             "id": str(document.id),
             "filename": document.file_name,
-            "title": document.title,
             "file_path": document.file_path,
             "file_size": document.file_size,
             "file_type": document.file_type,

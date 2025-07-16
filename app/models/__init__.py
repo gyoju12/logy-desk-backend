@@ -4,7 +4,6 @@ from app.models.db_models import (
     ChatMessage,
     ChatSession,
     Document,
-    DocumentChunk,
     User,
 )
 
@@ -12,7 +11,6 @@ __all__ = [
     "User",
     "Agent",
     "Document",
-    "DocumentChunk",
     "ChatSession",
     "ChatMessage",
 ]

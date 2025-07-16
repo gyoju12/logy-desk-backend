@@ -31,14 +31,14 @@ async def create_agent(
     agent_data = agent_in.model_dump()  # Use model_dump()
     agent_data["user_id"] = DEFAULT_USER_ID
 
-    db_agent = await crud_agent.agent.get_by_name(db, name=agent_in.name)
+    db_agent = await crud_agent.agent.get_by_name(db, user_id=DEFAULT_USER_ID, name=agent_in.name)
     if db_agent:
         raise HTTPException(
             status_code=400, detail="이미 존재하는 에이전트 이름입니다."
         )
     return await crud_agent.agent.create(
-        db, obj_in=agent_in
-    )  # Pass AgentCreate instance
+        db, obj_in=schemas.AgentCreate(**agent_data)
+    )
 
 
 @router.get("", response_model=List[schemas.Agent])
