@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install Python dependencies
 COPY pyproject.toml .
+ENV SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LOGY_DESK_BACKEND=0.0.1
 RUN pip install --no-cache-dir -e ".[dev]"
 
 # Copy the rest of the application
