@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud import crud_chat
 from app.db.session import get_db
 from app.schemas import chat as schemas
+from app.schemas.chat import ChatSessionPublic
 
 # Default user ID for MVP
 DEFAULT_USER_ID = UUID("00000000-0000-0000-0000-000000000000")
