@@ -79,19 +79,26 @@ async def get_chat_session(
     )
 
 
-@router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{session_id}", response_model=ChatSessionPublic)
 async def delete_chat_session(
-    session_id: UUID, db: AsyncSession = Depends(get_db)
-) -> None:
+    session_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
     """
-    채팅 세션을 삭제합니다.
-
-    - **session_id**: 삭제할 채팅 세션 ID
+    채팅 세션과 관련된 모든 메시지를 삭제합니다.
     """
-    db_chat_session = await crud_chat.chat_session.get(db, id=session_id)
-    if not db_chat_session:
-        raise HTTPException(status_code=404, detail="채팅 세션을 찾을 수 없습니다.")
+    session = await crud.chat_session.get(db, id=session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Chat session not found")
+    if session.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this chat session")
 
-    # 연관된 메시지들도 모두 삭제
-    await crud_chat.chat_session.remove(db, id=session_id)
-    # 204 No Content 반환 (본문 없음)
+    # 세션과 연결된 모든 메시지 삭제
+    messages = await crud.chat_message.get_multi_by_session(db, session_id=session_id)
+    for message in messages:
+        await crud.chat_message.remove(db, id=message.id)
+
+    # 채팅 세션 삭제
+    await crud.chat_session.remove(db, id=session_id)
+    return session
