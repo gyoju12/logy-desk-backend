@@ -4,21 +4,18 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.models.db_models import DocumentProcessingStatus, DocumentType
+
 
 class DocumentBase(BaseModel):
     """Base schema for document operations."""
 
     file_name: str = Field(..., description="Original filename")
-    file_path: str = Field(..., description="Path where the file is stored")
-    file_size: int = Field(..., description="Size of the file in bytes")
-    file_type: str = Field(..., description="MIME type of the file")
-    status: str = Field("processing", description="Processing status of the document")
-    error_message: Optional[str] = Field(
-        None, description="Error message if processing failed"
+    processing_status: DocumentProcessingStatus = Field(
+        DocumentProcessingStatus.PENDING, description="Processing status of the document"
     )
-    document_metadata: Optional[Dict[str, Any]] = Field(
-        None, description="Additional metadata"
-    )
+    summary: Optional[str] = Field(None, description="AI-generated summary of the document")
+    doc_type: Optional[DocumentType] = Field(None, description="Classification type of the document")
 
 
 class DocumentCreate(DocumentBase):
@@ -30,13 +27,11 @@ class DocumentCreate(DocumentBase):
 class DocumentUpdate(BaseModel):
     """Schema for updating an existing document."""
 
-    status: Optional[str] = Field(None, description="Updated processing status")
-    error_message: Optional[str] = Field(
-        None, description="Error message if processing failed"
+    processing_status: Optional[DocumentProcessingStatus] = Field(
+        None, description="Updated processing status"
     )
-    document_metadata: Optional[Dict[str, Any]] = Field(
-        None, description="Updated metadata"
-    )
+    summary: Optional[str] = Field(None, description="Updated AI-generated summary")
+    doc_type: Optional[DocumentType] = Field(None, description="Updated classification type")
 
 
 class DocumentInDBBase(DocumentBase):
@@ -58,6 +53,48 @@ class Document(DocumentInDBBase):
 
 class DocumentInDB(DocumentInDBBase):
     """Schema for documents retrieved from the database."""
+    pass
+
+
+class DocumentChunkBase(BaseModel):
+    """Base schema for document chunk operations."""
+    document_id: UUID = Field(..., description="ID of the parent document")
+    content: str = Field(..., description="Content of the document chunk")
+    embedding_status: DocumentProcessingStatus = Field(
+        DocumentProcessingStatus.PENDING, description="Embedding status of the chunk"
+    )
+    num_tokens: int = Field(..., description="Number of tokens in the chunk")
+
+
+class DocumentChunkCreate(DocumentChunkBase):
+    """Schema for creating a new document chunk."""
+    pass
+
+
+class DocumentChunkUpdate(BaseModel):
+    """Schema for updating an existing document chunk."""
+    embedding_status: Optional[DocumentProcessingStatus] = Field(
+        None, description="Updated embedding status"
+    )
+
+
+class DocumentChunkInDBBase(DocumentChunkBase):
+    """Base schema for document chunks stored in the database."""
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DocumentChunk(DocumentChunkInDBBase):
+    """Schema for returning a document chunk."""
+    pass
+
+
+class DocumentChunkInDB(DocumentChunkInDBBase):
+    """Schema for document chunks retrieved from the database."""
     pass
 
 

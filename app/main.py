@@ -16,6 +16,7 @@ from app.api.router import api_router
 from app.crud import crud_agent
 from app.db.session import get_db
 from app.core.logging_config import setup_logging
+from celery import Celery
 
 # 로깅 설정 초기화
 setup_logging(level="DEBUG")
@@ -25,16 +26,30 @@ logger = logging.getLogger(__name__)
 API_PREFIX = "/api/v1"
 
 
+def create_celery_app() -> Celery:
+    celery_app = Celery(
+        "logy_desk_backend",
+        broker=settings.CELERY_BROKER_URL,
+        backend=settings.CELERY_RESULT_BACKEND,
+        include=["app.tasks.document_tasks"],  # Celery 태스크 파일 경로
+    )
+    celery_app.conf.update(task_track_started=True)
+    return celery_app
+
+
 # Application lifespan
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup: Initialize resources (DB connections, etc.)
     logger.info("Starting up Logy-Desk API...")
+    app.state.celery_app = create_celery_app()
 
     yield
 
     # Shutdown: Clean up resources
     logger.info("Shutting down Logy-Desk API...")
+    if app.state.celery_app:
+        app.state.celery_app.control.shutdown()
 
 
 # Initialize FastAPI app
@@ -42,8 +57,8 @@ app = FastAPI(
     title="Logy-Desk API",
     description="Logy-Desk Backend API Documentation",
     version="1.0.0",
-    docs_url=None,  
-    redoc_url=None,  
+    docs_url=None,
+    redoc_url=None,
     openapi_url=f"{API_PREFIX}/openapi.json",
     lifespan=lifespan,
 )
@@ -55,7 +70,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     logger.error(f"Request URL: {request.url}")
     logger.error(f"Request method: {request.method}")
     logger.error(f"Traceback: {traceback.format_exc()}")
-    
+
     return JSONResponse(
         status_code=500,
         content={"detail": f"Internal server error: {str(exc)}"}
@@ -65,7 +80,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 # CORS middleware configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -77,7 +92,7 @@ root_router = APIRouter()
 
 # Health check endpoint
 @root_router.get("/health", status_code=status.HTTP_200_OK, tags=["Health"])
-async def health_check() -> Dict[str, str]:  
+async def health_check() -> Dict[str, str]:
     """Health check endpoint for monitoring"""
     return {"status": "healthy"}
 
@@ -89,7 +104,7 @@ legacy_router = APIRouter()
 @legacy_router.get("/agents", include_in_schema=False)
 async def legacy_list_agents(
     type: Optional[str] = None, db: AsyncSession = Depends(get_db)
-) -> List[Any]:  
+) -> List[Any]:
     """
     레거시 엔드포인트: /api/agents
 
@@ -105,7 +120,7 @@ async def legacy_list_agents(
 @legacy_router.get("/chats", include_in_schema=False)
 async def legacy_list_chats(
     db: AsyncSession = Depends(get_db),
-) -> List[Any]:  
+) -> List[Any]:
     """
     레거시 엔드포인트: /api/chats
 
@@ -125,13 +140,13 @@ app.include_router(legacy_router, prefix="/api")
 
 # Redirect /doc to /docs
 @app.get("/doc", include_in_schema=False)
-async def redirect_doc_to_docs() -> RedirectResponse:  
+async def redirect_doc_to_docs() -> RedirectResponse:
     return RedirectResponse(url="/docs")
 
 
 # Custom Swagger UI
 @app.get("/docs", include_in_schema=False)
-async def custom_swagger_ui_html() -> HTMLResponse:  
+async def custom_swagger_ui_html() -> HTMLResponse:
     return get_swagger_ui_html(
         openapi_url=f"{API_PREFIX}/openapi.json",
         title=app.title,
@@ -140,7 +155,7 @@ async def custom_swagger_ui_html() -> HTMLResponse:
 
 
 # Custom OpenAPI schema
-def custom_openapi() -> Dict[str, Any]:  
+def custom_openapi() -> Dict[str, Any]:
     if app.openapi_schema:
         return app.openapi_schema
 
@@ -160,7 +175,7 @@ def custom_openapi() -> Dict[str, Any]:
     return app.openapi_schema
 
 
-app.openapi_schema = custom_openapi()  
+app.openapi_schema = custom_openapi()
 
 if __name__ == "__main__":
     import uvicorn
