@@ -10,6 +10,7 @@ from app.crud import crud_chat, crud_agent
 from app.db.session import get_db
 from app.schemas import chat as schemas
 from app.services.llm_client import LLMClient
+from app.services.rag_service import RAGService
 from app.core.logging_config import get_logger
 
 # Default user ID for MVP
@@ -102,7 +103,30 @@ async def create_chat_message(
                     "content": system_prompt
                 })
             
-            # 2. 이전 대화 기록 추가 (시간순으로 정렬)
+            # 2. RAG: 사용자 메시지와 관련된 문서 검색
+            logger.info("Searching for relevant documents...")
+            rag_service = RAGService()
+            relevant_chunks = await rag_service.search_relevant_chunks(
+                db=db,
+                query=message.content,
+                user_id=DEFAULT_USER_ID,
+                top_k=5,
+                threshold=0.7
+            )
+            
+            # 검색된 문서로부터 컨텍스트 생성
+            rag_context = rag_service.create_context_from_chunks(relevant_chunks)
+            if rag_context:
+                logger.info(f"Found {len(relevant_chunks)} relevant document chunks")
+                # RAG 컨텍스트를 시스템 메시지로 추가
+                chat_history.append({
+                    "role": "system",
+                    "content": rag_context
+                })
+            else:
+                logger.info("No relevant documents found for the query")
+            
+            # 3. 이전 대화 기록 추가 (시간순으로 정렬)
             for msg in context_messages:  # 이미 시간순으로 정렬됨 (created_at.asc())
                 if msg.role == "system":
                     continue  # 시스템 메시지는 이미 추가했으므로 제외
@@ -111,15 +135,14 @@ async def create_chat_message(
                     "content": msg.content
                 })
             
-            # 3. 현재 사용자 메시지 추가 (가장 마지막)
+            # 4. 현재 사용자 메시지 추가 (가장 마지막)
             chat_history.append({
                 "role": message.role,
                 "content": message.content
             })
             
-            logger.info(f"Chat history prepared: {len(chat_history)} messages")
-            logger.debug(f"Message roles: {[msg['role'] for msg in chat_history]}")
-
+            logger.info(f"Chat history prepared: {len(chat_history)} messages (including RAG context)")
+            
             # LLM 클라이언트 초기화 및 응답 생성
             llm_client = LLMClient()
             await llm_client.initialize()

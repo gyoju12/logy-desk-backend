@@ -23,7 +23,7 @@ from app.core.celery_utils import celery_app
 logger = logging.getLogger(__name__)
 
 
-async def async_process_document(document_id: str, file_path: str):
+async def async_process_document(document_id: str, file_path: str, task=None):
     """비동기 문서 처리 함수"""
     db: AsyncSession = None
     try:
@@ -47,6 +47,14 @@ async def async_process_document(document_id: str, file_path: str):
             await session.commit()
             await session.refresh(db_document)
 
+            # 진행 상황 업데이트: 문서 로딩
+            if task:
+                task.update_state(state='PROCESSING', meta={
+                    'current': 10,
+                    'total': 100,
+                    'status': 'Loading document...'
+                })
+
             # Load document
             loader = None
             file_extension = Path(file_path).suffix.lower()
@@ -59,15 +67,37 @@ async def async_process_document(document_id: str, file_path: str):
 
             langchain_documents = loader.load()
 
+            # 진행 상황 업데이트: 문서 분할
+            if task:
+                task.update_state(state='PROCESSING', meta={
+                    'current': 30,
+                    'total': 100,
+                    'status': f'Splitting document into chunks...'
+                })
+
             # Split document into chunks
             text_splitter = RecursiveCharacterTextSplitter(
                 chunk_size=1000, chunk_overlap=200
             )
             chunks = text_splitter.split_documents(langchain_documents)
+            
+            total_chunks = len(chunks)
+            logger.info(f"Document split into {total_chunks} chunks")
 
             # Create document chunks in DB and enqueue embedding tasks
             chunk_ids = []
             for i, chunk in enumerate(chunks):
+                # 진행 상황 업데이트: 각 chunk 처리
+                if task:
+                    progress = 30 + int((i / total_chunks) * 60)  # 30% ~ 90%
+                    task.update_state(state='PROCESSING', meta={
+                        'current': progress,
+                        'total': 100,
+                        'status': f'Processing chunk {i+1}/{total_chunks}...',
+                        'chunks_processed': i,
+                        'total_chunks': total_chunks
+                    })
+                
                 chunk_data = DocumentChunkCreate(
                     document_id=doc_uuid,
                     content=chunk.page_content,
@@ -81,7 +111,17 @@ async def async_process_document(document_id: str, file_path: str):
                 
                 chunk_ids.append(str(db_chunk.id))
                 # Enqueue embedding task for each chunk
-                embed_chunk.delay(str(db_chunk.id), db_chunk.content)
+                embed_chunk_task.delay(str(db_chunk.id), db_chunk.content)
+
+            # 진행 상황 업데이트: 완료
+            if task:
+                task.update_state(state='PROCESSING', meta={
+                    'current': 90,
+                    'total': 100,
+                    'status': 'Finalizing document processing...',
+                    'chunks_processed': total_chunks,
+                    'total_chunks': total_chunks
+                })
 
             # Update document status to COMPLETED if all chunks are enqueued
             await document.update(
@@ -94,6 +134,14 @@ async def async_process_document(document_id: str, file_path: str):
             )
             await session.commit()
             logger.info(f"Document {document_id} processing completed. Created {len(chunks)} chunks.")
+            
+            return {
+                "status": "completed",
+                "document_id": document_id,
+                "message": "Document processing completed",
+                "chunks_created": len(chunks),
+                "chunk_ids": chunk_ids
+            }
 
     except Exception as e:
         logger.error(f"Error processing document {document_id}: {e}", exc_info=True)
@@ -118,24 +166,50 @@ def process_document(self, document_id: str, file_path: str):
     """동기 Celery task wrapper"""
     logger.info(f"Starting document processing for document {document_id}")
     
+    # 작업 시작 상태 업데이트
+    self.update_state(state='PROCESSING', meta={
+        'current': 0,
+        'total': 100,
+        'status': 'Starting document processing...'
+    })
+    
     # 이벤트 루프에서 비동기 함수 실행
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
-        loop.run_until_complete(async_process_document(document_id, file_path))
+        # self 객체를 async 함수에 전달
+        result = loop.run_until_complete(async_process_document(document_id, file_path, self))
     finally:
         loop.close()
     
-    return {
-        "status": "completed",
-        "document_id": document_id,
-        "message": "Document processing completed"
-    }
+    return result
 
 
-async def async_embed_chunk(chunk_id: str, chunk_content: str):
-    """비동기 chunk 임베딩 함수"""
-    db: AsyncSession = None
+@celery_app.task(bind=True, max_retries=3)
+def embed_chunk_task(self, chunk_id: str, chunk_content: str):
+    """
+    Celery task for embedding a document chunk with progress updates.
+    비동기 작업을 위해 새로운 이벤트 루프를 생성합니다.
+    """
+    import asyncio
+    from app.tasks.document_tasks import async_embed_chunk_with_new_loop
+    
+    try:
+        # 새로운 이벤트 루프 생성
+        result = asyncio.run(async_embed_chunk_with_new_loop(chunk_id, chunk_content))
+        return result
+    except Exception as exc:
+        logger.error(f"Error embedding chunk {chunk_id}: {exc}")
+        raise self.retry(exc=exc, countdown=60)
+
+
+async def async_embed_chunk_with_new_loop(chunk_id: str, chunk_content: str):
+    """새로운 이벤트 루프에서 실행되는 비동기 chunk 임베딩 함수"""
+    from app.db.session import async_session_maker
+    from app.crud import document_chunk
+    from app.models.db_models import DocumentProcessingStatus
+    from uuid import UUID
+    
     try:
         async with async_session_maker() as session:
             chunk_uuid = UUID(chunk_id)
@@ -143,58 +217,62 @@ async def async_embed_chunk(chunk_id: str, chunk_content: str):
 
             if not db_chunk:
                 logger.error(f"Chunk with ID {chunk_id} not found.")
-                return
+                return {"status": "failed", "chunk_id": chunk_id, "message": "Chunk not found"}
 
-            # Initialize embedding model and ChromaDB
-            embeddings = OpenAIEmbeddings(api_key=settings.OPENAI_API_KEY, model="text-embedding-ada-002")
-            # Assuming ChromaDB is initialized to a persistent path
-            # For simplicity, we'll re-initialize it here. In a real app, manage this more robustly.
-            # Ensure CHROMA_DB_PATH is configured in settings
-            chroma_client = Chroma(persist_directory=settings.CHROMA_DB_PATH, embedding_function=embeddings)
-
-            # Add chunk to ChromaDB
-            # ChromaDB expects a list of documents, so we wrap the content
-            chroma_client.add_texts(texts=[chunk_content], metadatas=[{"chunk_id": str(chunk_uuid), "document_id": str(db_chunk.document_id)}])
-
-            # Update chunk status to COMPLETED
+            # Update chunk status to PROCESSING
             await document_chunk.update(
                 session,
                 db_obj=db_chunk,
                 obj_in={
-                    "embedding_status": DocumentProcessingStatus.COMPLETED,
+                    "embedding_status": DocumentProcessingStatus.PROCESSING,
                 },
             )
             await session.commit()
-            logger.info(f"Chunk {chunk_id} embedded and stored in ChromaDB.")
 
-    except Exception as e:
-        logger.error(f"Error embedding chunk {chunk_id}: {e}", exc_info=True)
-        if db and db_chunk:
-            await document_chunk.update(
-                db,
-                db_obj=db_chunk,
-                obj_in={
-                    "embedding_status": DocumentProcessingStatus.FAILED,
-                },
-            )
-            await db.commit()
+            # 임시로 Mock 임베딩 사용 (OpenAI API 키가 없는 경우)
+            # TODO: 실제 환경에서는 OpenAI API 키 설정 필요
+            try:
+                if settings.OPENAI_API_KEY:
+                    embeddings = OpenAIEmbeddings(api_key=settings.OPENAI_API_KEY, model="text-embedding-ada-002")
+                    embedding_result = embeddings.embed_documents([chunk_content])
+                    embedding_vector = embedding_result[0]
+                else:
+                    logger.warning("OpenAI API key not set. Using mock embedding.")
+                    # Mock 임베딩 - 1536 차원의 더미 벡터
+                    import random
+                    embedding_vector = [random.random() for _ in range(1536)]
 
+                # Update chunk with embedding and success status
+                await document_chunk.update(
+                    session,
+                    db_obj=db_chunk,
+                    obj_in={
+                        "embedding": embedding_vector,
+                        "embedding_status": DocumentProcessingStatus.SUCCESS,
+                    },
+                )
+                await session.commit()
 
-@celery_app.task(name="embed_chunk_task", bind=True)
-def embed_chunk(self, chunk_id: str, chunk_content: str):
-    """동기 chunk 임베딩 task wrapper"""
-    logger.info(f"Starting chunk embedding for chunk {chunk_id}")
-    
-    # 이벤트 루프에서 비동기 함수 실행
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        loop.run_until_complete(async_embed_chunk(chunk_id, chunk_content))
-    finally:
-        loop.close()
-    
-    return {
-        "status": "completed",
-        "chunk_id": chunk_id,
-        "message": "Chunk embedding completed"
-    }
+                logger.info(f"Successfully embedded chunk {chunk_id}")
+                return {"status": "success", "chunk_id": chunk_id}
+
+            except Exception as e:
+                error_msg = str(e)
+                logger.error(f"Failed to generate embedding for chunk {chunk_id}: {error_msg}")
+                
+                # Update chunk with error status
+                await document_chunk.update(
+                    session,
+                    db_obj=db_chunk,
+                    obj_in={
+                        "embedding_status": DocumentProcessingStatus.FAILED,
+                        "error_message": error_msg,
+                    },
+                )
+                await session.commit()
+                
+                return {"status": "failed", "chunk_id": chunk_id, "message": error_msg}
+
+    except Exception as exc:
+        logger.error(f"Database error in embedding chunk {chunk_id}: {exc}")
+        return {"status": "failed", "chunk_id": chunk_id, "message": str(exc)}

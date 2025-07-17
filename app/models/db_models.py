@@ -213,6 +213,8 @@ class DocumentChunk(Base):
         String(20), nullable=False, default=DocumentProcessingStatus.PENDING
     )
     num_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    embedding: Mapped[Optional[List[float]]] = mapped_column(JSONB, nullable=True)
 
     # Relationships
     document: Mapped["Document"] = relationship(

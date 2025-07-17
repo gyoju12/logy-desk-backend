@@ -192,9 +192,16 @@ async def upload_document(
 @router.get("/task-status/{task_id}", response_model=Dict[str, Any])
 async def get_task_status(task_id: str) -> Dict[str, Any]:
     """
-    Get the status of a document processing task.
+    Get the status of a document processing task with detailed progress information.
     
     - **task_id**: The Celery task ID returned from upload endpoint
+    
+    Returns:
+    - task_id: The task ID
+    - state: Current state (PENDING, PROCESSING, SUCCESS, FAILURE)
+    - progress: Progress information (current, total, status message)
+    - result: Task result if completed
+    - error: Error message if failed
     """
     try:
         # Celery AsyncResult를 사용하여 작업 상태 확인
@@ -210,22 +217,51 @@ async def get_task_status(task_id: str) -> Dict[str, Any]:
             "failed": result.failed() if result.ready() else None,
         }
         
+        # 진행 중인 경우 상세 정보 추가
+        if result.state == "PROCESSING":
+            meta = result.info or {}
+            task_info["progress"] = {
+                "current": meta.get("current", 0),
+                "total": meta.get("total", 100),
+                "percentage": meta.get("current", 0),
+                "status": meta.get("status", "Processing..."),
+                "chunks_processed": meta.get("chunks_processed", 0),
+                "total_chunks": meta.get("total_chunks", 0),
+            }
+        
         # 작업이 완료된 경우 결과 추가
-        if result.ready() and result.successful():
+        elif result.ready() and result.successful():
             task_info["result"] = result.result
+            task_info["progress"] = {
+                "current": 100,
+                "total": 100,
+                "percentage": 100,
+                "status": "Completed",
+            }
+            if isinstance(result.result, dict):
+                task_info["progress"]["chunks_created"] = result.result.get("chunks_created", 0)
         
         # 작업이 실패한 경우 에러 정보 추가
-        if result.failed():
+        elif result.failed():
             task_info["error"] = str(result.info)
+            task_info["progress"] = {
+                "current": 0,
+                "total": 100,
+                "percentage": 0,
+                "status": "Failed",
+            }
             
-        # 진행 중인 경우 현재 상태 추가
-        if result.state == "PROCESSING":
-            task_info["current"] = result.info.get("current", 0)
-            task_info["total"] = result.info.get("total", 0)
+        # PENDING 상태
+        else:
+            task_info["progress"] = {
+                "current": 0,
+                "total": 100,
+                "percentage": 0,
+                "status": "Waiting to start...",
+            }
             
         logger.info(f"Task {task_id} status: {result.state}")
         return task_info
-        
     except Exception as e:
         error_msg = f"Error checking task status: {str(e)}"
         logger.error(error_msg, exc_info=True)
