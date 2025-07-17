@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from typing import List
 from uuid import UUID
+import asyncio
 
 from celery import Celery
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,12 +23,11 @@ from app.core.celery_utils import celery_app
 logger = logging.getLogger(__name__)
 
 
-@celery_app.task(name="process_document_task", bind=True)
-async def process_document(self, document_id: str, file_path: str):
+async def async_process_document(document_id: str, file_path: str):
+    """비동기 문서 처리 함수"""
     db: AsyncSession = None
     try:
-        db = async_session_maker()
-        async with db as session:
+        async with async_session_maker() as session:
             doc_uuid = UUID(document_id)
             db_document = await document.get(session, id=doc_uuid)
 
@@ -66,6 +66,7 @@ async def process_document(self, document_id: str, file_path: str):
             chunks = text_splitter.split_documents(langchain_documents)
 
             # Create document chunks in DB and enqueue embedding tasks
+            chunk_ids = []
             for i, chunk in enumerate(chunks):
                 chunk_data = DocumentChunkCreate(
                     document_id=doc_uuid,
@@ -77,7 +78,8 @@ async def process_document(self, document_id: str, file_path: str):
                 await session.flush()
                 await session.refresh(db_chunk)
                 logger.info(f"Created chunk {db_chunk.id} for document {document_id}")
-
+                
+                chunk_ids.append(str(db_chunk.id))
                 # Enqueue embedding task for each chunk
                 embed_chunk.delay(str(db_chunk.id), db_chunk.content)
 
@@ -87,36 +89,55 @@ async def process_document(self, document_id: str, file_path: str):
                 db_obj=db_document,
                 obj_in={
                     "processing_status": DocumentProcessingStatus.COMPLETED,
+                    "chunk_count": len(chunks),
                 },
             )
             await session.commit()
-            logger.info(f"Document {document_id} processing completed and chunks enqueued.")
+            logger.info(f"Document {document_id} processing completed. Created {len(chunks)} chunks.")
 
     except Exception as e:
         logger.error(f"Error processing document {document_id}: {e}", exc_info=True)
-        if db and db_document:
-            await document.update(
-                db,
-                db_obj=db_document,
-                obj_in={
-                    "processing_status": DocumentProcessingStatus.FAILED,
-                    "error_message": str(e),
-                },
-            )
-            await db.commit()
+        if db:
+            async with async_session_maker() as session:
+                doc_uuid = UUID(document_id)
+                db_document = await document.get(session, id=doc_uuid)
+                if db_document:
+                    await document.update(
+                        session,
+                        db_obj=db_document,
+                        obj_in={
+                            "processing_status": DocumentProcessingStatus.FAILED,
+                            "error_message": str(e),
+                        },
+                    )
+                    await session.commit()
+
+
+@celery_app.task(name="process_document_task", bind=True)
+def process_document(self, document_id: str, file_path: str):
+    """동기 Celery task wrapper"""
+    logger.info(f"Starting document processing for document {document_id}")
+    
+    # 이벤트 루프에서 비동기 함수 실행
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(async_process_document(document_id, file_path))
     finally:
-        # Clean up the uploaded file
-        if Path(file_path).exists():
-            os.remove(file_path)
-            logger.info(f"Cleaned up temporary file: {file_path}")
+        loop.close()
+    
+    return {
+        "status": "completed",
+        "document_id": document_id,
+        "message": "Document processing completed"
+    }
 
 
-@celery_app.task(name="embed_chunk_task", bind=True)
-async def embed_chunk(self, chunk_id: str, chunk_content: str):
+async def async_embed_chunk(chunk_id: str, chunk_content: str):
+    """비동기 chunk 임베딩 함수"""
     db: AsyncSession = None
     try:
-        db = async_session_maker()
-        async with db as session:
+        async with async_session_maker() as session:
             chunk_uuid = UUID(chunk_id)
             db_chunk = await document_chunk.get(session, id=chunk_uuid)
 
@@ -157,3 +178,23 @@ async def embed_chunk(self, chunk_id: str, chunk_content: str):
                 },
             )
             await db.commit()
+
+
+@celery_app.task(name="embed_chunk_task", bind=True)
+def embed_chunk(self, chunk_id: str, chunk_content: str):
+    """동기 chunk 임베딩 task wrapper"""
+    logger.info(f"Starting chunk embedding for chunk {chunk_id}")
+    
+    # 이벤트 루프에서 비동기 함수 실행
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(async_embed_chunk(chunk_id, chunk_content))
+    finally:
+        loop.close()
+    
+    return {
+        "status": "completed",
+        "chunk_id": chunk_id,
+        "message": "Chunk embedding completed"
+    }

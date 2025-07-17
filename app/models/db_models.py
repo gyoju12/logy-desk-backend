@@ -179,6 +179,8 @@ class Document(Base):
     doc_type: Mapped[Optional[DocumentType]] = mapped_column(
         String(50), nullable=True
     )
+    chunk_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=0)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Relationships
     chunks: Mapped[List["DocumentChunk"]] = relationship(

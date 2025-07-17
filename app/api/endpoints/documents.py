@@ -11,8 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud import crud_document
 from app.db.session import get_db
-from app.schemas.document import Document as DocumentSchema
-from app.schemas.document import DocumentCreate, DocumentProcessingStatus
+from app.schemas.document import Document as DocumentSchema, DocumentCreate, DocumentProcessingStatus
 from app.core.celery_utils import celery_app
 from app.tasks.document_tasks import process_document
 
@@ -115,7 +114,7 @@ def _cleanup_file(file_path: Path) -> None:
 @router.post("/upload", status_code=status.HTTP_200_OK)
 async def upload_document(
     file: UploadFile = File(...), db: AsyncSession = Depends(get_db)
-) -> Dict[str, str]:
+) -> Dict[str, Any]:
     """
     Upload a document to the knowledge base. The file is saved and processed asynchronously.
 
@@ -153,13 +152,20 @@ async def upload_document(
             file_name=file.filename,
         )
 
-        process_document.delay(str(db_document.id), str(file_path))
-        logger.info(f"Enqueued document processing task for ID: {db_document.id}")
+        # Celery task 실행 및 task_id 저장
+        task = process_document.delay(str(db_document.id), str(file_path))
+        task_id = task.id
+        logger.info(f"Enqueued document processing task {task_id} for document ID: {db_document.id}")
 
         response_data = {
             "message": "File upload accepted for processing",
-            "filename": file.filename,
-            "document_id": str(db_document.id),
+            "document": {
+                "id": str(db_document.id),
+                "filename": db_document.file_name,
+                "processing_status": db_document.processing_status,
+                "uploaded_at": db_document.created_at.isoformat() + "Z",
+                "task_id": task_id,  # 작업 추적을 위한 task ID 추가
+            },
         }
 
         logger.info(f"Upload request completed for document ID: {db_document.id}")
@@ -181,6 +187,51 @@ async def upload_document(
         if not file.file.closed:
             await file.close()
             logger.debug("Uploaded file handle closed")
+
+
+@router.get("/task-status/{task_id}", response_model=Dict[str, Any])
+async def get_task_status(task_id: str) -> Dict[str, Any]:
+    """
+    Get the status of a document processing task.
+    
+    - **task_id**: The Celery task ID returned from upload endpoint
+    """
+    try:
+        # Celery AsyncResult를 사용하여 작업 상태 확인
+        from celery.result import AsyncResult
+        
+        result = AsyncResult(task_id, app=celery_app)
+        
+        task_info = {
+            "task_id": task_id,
+            "state": result.state,
+            "ready": result.ready(),
+            "successful": result.successful() if result.ready() else None,
+            "failed": result.failed() if result.ready() else None,
+        }
+        
+        # 작업이 완료된 경우 결과 추가
+        if result.ready() and result.successful():
+            task_info["result"] = result.result
+        
+        # 작업이 실패한 경우 에러 정보 추가
+        if result.failed():
+            task_info["error"] = str(result.info)
+            
+        # 진행 중인 경우 현재 상태 추가
+        if result.state == "PROCESSING":
+            task_info["current"] = result.info.get("current", 0)
+            task_info["total"] = result.info.get("total", 0)
+            
+        logger.info(f"Task {task_id} status: {result.state}")
+        return task_info
+        
+    except Exception as e:
+        error_msg = f"Error checking task status: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg
+        )
 
 
 @router.get("", response_model=Dict[str, Any])
@@ -246,7 +297,7 @@ async def get_document(
     document_id: UUID, db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
     """
-    Get details of a specific document.
+    Get details of a specific document including its chunks.
 
     - **document_id**: ID of the document to retrieve (UUID string)
     """
@@ -260,6 +311,29 @@ async def get_document(
             logger.warning(error_msg)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error_msg)
 
+        # Chunk 정보 조회
+        from sqlalchemy import select
+        from app.models.db_models import DocumentChunk
+        
+        chunks_result = await db.execute(
+            select(DocumentChunk)
+            .where(DocumentChunk.document_id == document_id)
+            .order_by(DocumentChunk.created_at)
+        )
+        chunks = chunks_result.scalars().all()
+        
+        # Chunk 정보 포맷팅
+        chunk_info = [
+            {
+                "id": str(chunk.id),
+                "content_preview": chunk.content[:200] + "..." if len(chunk.content) > 200 else chunk.content,
+                "num_tokens": chunk.num_tokens,
+                "embedding_status": chunk.embedding_status,
+                "created_at": chunk.created_at.isoformat() + "Z",
+            }
+            for chunk in chunks
+        ]
+
         response_data = {
             "id": str(document.id),
             "filename": document.file_name,
@@ -267,9 +341,12 @@ async def get_document(
             "summary": document.summary,
             "doc_type": document.doc_type,
             "uploaded_at": document.created_at.isoformat() + "Z",
+            "chunk_count": len(chunks),
+            "chunks": chunk_info,
+            "error_message": document.error_message,
         }
 
-        logger.info(f"Successfully retrieved document: {document_id}")
+        logger.info(f"Successfully retrieved document: {document_id} with {len(chunks)} chunks")
         return response_data
 
     except HTTPException:
