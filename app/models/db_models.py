@@ -141,6 +141,19 @@ class User(Base):
         return f"<User(id={self.id}, email={self.email})>"
 
 
+class DocumentProcessingStatus(str, Enum):
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+
+class DocumentType(str, Enum):
+    MANUAL = "MANUAL"
+    FAQ = "FAQ"
+    # Add other types as needed
+
+
 class Document(Base):
     """Document model for storing document metadata."""
 
@@ -159,19 +172,57 @@ class Document(Base):
         PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )
     file_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    file_path: Mapped[str] = mapped_column(String(512), nullable=False)
-    file_size: Mapped[int] = mapped_column(Integer, nullable=False)
-    file_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    status: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="processing"
+    processing_status: Mapped[DocumentProcessingStatus] = mapped_column(
+        String(20), nullable=False, default=DocumentProcessingStatus.PENDING
     )
+    summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    doc_type: Mapped[Optional[DocumentType]] = mapped_column(
+        String(50), nullable=True
+    )
+    chunk_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=0)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    document_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(
-        "metadata", JSONB, nullable=True
+
+    # Relationships
+    chunks: Mapped[List["DocumentChunk"]] = relationship(
+        "DocumentChunk", back_populates="document", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:
-        return f"<Document(id={self.id}, file_name='{self.file_name}', status='{self.status}')>"
+        return f"<Document(id={self.id}, file_name='{self.file_name}', status='{self.processing_status}')>"
+
+
+class DocumentChunk(Base):
+    """DocumentChunk model for storing document chunks and their embedding status."""
+
+    __tablename__ = "document_chunks"
+
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+    document_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("documents.id"), nullable=False
+    )
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    embedding_status: Mapped[DocumentProcessingStatus] = mapped_column(
+        String(20), nullable=False, default=DocumentProcessingStatus.PENDING
+    )
+    num_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    embedding: Mapped[Optional[List[float]]] = mapped_column(JSONB, nullable=True)
+
+    # Relationships
+    document: Mapped["Document"] = relationship(
+        "Document", back_populates="chunks"
+    )
+
+    def __repr__(self) -> str:
+        return f"<DocumentChunk(id={self.id}, document_id={self.document_id}, status='{self.embedding_status}')>"
 
 
 class ChatSession(Base):

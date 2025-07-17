@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Dict, List
+from typing import Dict, List, Optional
 from uuid import UUID
 import logging
 
@@ -10,21 +10,22 @@ from app.crud import crud_chat, crud_agent
 from app.db.session import get_db
 from app.schemas import chat as schemas
 from app.services.llm_client import LLMClient
+from app.services.rag_service import RAGService
 from app.core.logging_config import get_logger
 
 # Default user ID for MVP
-DEFAULT_USER_ID = UUID("00000000-0000-0000-0000-000000000001")
+DEFAULT_USER_ID = UUID("00000000-0000-0000-0000-000000000000")
 
 router = APIRouter()
 logger = get_logger(__name__)
 
 
-@router.post("/{session_id}/messages", response_model=schemas.ChatMessage)
+@router.post("/{session_id}/messages", response_model=Dict[str, List[schemas.ChatMessage]])
 async def create_chat_message(
     session_id: UUID,
     message: schemas.ChatMessageCreate,
     db: AsyncSession = Depends(get_db),
-) -> schemas.ChatMessage:
+) -> Dict[str, List[schemas.ChatMessage]]:
     """
     새로운 채팅 메시지를 생성하고 AI 응답을 반환합니다.
 
@@ -72,15 +73,32 @@ async def create_chat_message(
             logger.info(f"Main agent found: {main_agent is not None}")
             
             # 기본값 설정 (MAIN 에이전트가 없는 경우)
-            model = "gpt-3.5-turbo"
+            model = "google/gemma-3-27b-it:free"
             temperature = 0.7
             system_prompt = "당신은 도움이 되는 AI 어시스턴트입니다."
             
             if main_agent:
-                model = main_agent.model or model
-                temperature = main_agent.temperature or temperature
-                system_prompt = main_agent.system_prompt or system_prompt
-                logger.info(f"Using agent settings - model: {model}, temperature: {temperature}")
+                # DB에서 가져온 Main 에이전트 설정값 로깅
+                logger.info(f"Main agent DB values:")
+                logger.info(f"  - name: {main_agent.name}")
+                logger.info(f"  - model: {main_agent.model}")
+                logger.info(f"  - temperature: {main_agent.temperature}")
+                logger.info(f"  - system_prompt: {main_agent.system_prompt[:50]}...")
+                
+                # None이 아닌 경우에만 덮어쓰기 (0이나 빈 문자열도 유효한 값으로 처리)
+                if main_agent.model is not None:
+                    model = main_agent.model
+                if main_agent.temperature is not None:
+                    temperature = main_agent.temperature
+                if main_agent.system_prompt is not None:
+                    system_prompt = main_agent.system_prompt
+                
+                logger.info(f"Final settings to be used:")
+                logger.info(f"  - model: {model}")
+                logger.info(f"  - temperature: {temperature}")
+                logger.info(f"  - system_prompt: {system_prompt[:50]}...")
+            else:
+                logger.warning("No MAIN agent found, using default settings")
             
             # 최근 채팅 기록 가져오기 (현재 사용자 메시지 제외)
             # 컨텍스트용으로 최근 8개 메시지 (4개 대화 쌍 정도)
@@ -102,7 +120,30 @@ async def create_chat_message(
                     "content": system_prompt
                 })
             
-            # 2. 이전 대화 기록 추가 (시간순으로 정렬)
+            # 2. RAG: 사용자 메시지와 관련된 문서 검색
+            logger.info("Searching for relevant documents...")
+            rag_service = RAGService()
+            relevant_chunks = await rag_service.search_relevant_chunks(
+                db=db,
+                query=message.content,
+                user_id=DEFAULT_USER_ID,
+                top_k=5,
+                threshold=0.7
+            )
+            
+            # 검색된 문서로부터 컨텍스트 생성
+            rag_context = rag_service.create_context_from_chunks(relevant_chunks)
+            if rag_context:
+                logger.info(f"Found {len(relevant_chunks)} relevant document chunks")
+                # RAG 컨텍스트를 시스템 메시지로 추가
+                chat_history.append({
+                    "role": "system",
+                    "content": rag_context
+                })
+            else:
+                logger.info("No relevant documents found for the query")
+            
+            # 3. 이전 대화 기록 추가 (시간순으로 정렬)
             for msg in context_messages:  # 이미 시간순으로 정렬됨 (created_at.asc())
                 if msg.role == "system":
                     continue  # 시스템 메시지는 이미 추가했으므로 제외
@@ -111,15 +152,14 @@ async def create_chat_message(
                     "content": msg.content
                 })
             
-            # 3. 현재 사용자 메시지 추가 (가장 마지막)
+            # 4. 현재 사용자 메시지 추가 (가장 마지막)
             chat_history.append({
                 "role": message.role,
                 "content": message.content
             })
             
-            logger.info(f"Chat history prepared: {len(chat_history)} messages")
-            logger.debug(f"Message roles: {[msg['role'] for msg in chat_history]}")
-
+            logger.info(f"Chat history prepared: {len(chat_history)} messages (including RAG context)")
+            
             # LLM 클라이언트 초기화 및 응답 생성
             llm_client = LLMClient()
             await llm_client.initialize()
@@ -156,7 +196,14 @@ async def create_chat_message(
                 db, obj_in=error_message, session_id=session_id
             )
 
-    return db_message
+    # 사용자 메시지와 AI 응답을 함께 반환
+    messages = await crud_chat.chat_message.get_multi_by_session(
+        db, session_id=session_id, skip=0, limit=100
+    )
+    # 최신 2개 메시지만 가져오기
+    recent_messages = messages[-2:] if len(messages) >= 2 else messages
+    
+    return {"messages": recent_messages}
 
 
 @router.get("/{session_id}/messages", response_model=List[schemas.ChatMessage])

@@ -25,7 +25,7 @@ class CRUDAgent(CRUDBase[Agent, AgentCreate, AgentUpdate]):
         result = await db.execute(
             select(self.model).filter(
                 self.model.user_id == user_id,
-                self.model.agent_type == "MAIN"
+                self.model.agent_type == "main"
             )
         )
         return result.scalars().first()

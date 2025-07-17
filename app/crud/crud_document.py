@@ -4,8 +4,8 @@ from uuid import UUID
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.db_models import Document
-from app.schemas.document import DocumentCreate, DocumentUpdate
+from app.models.db_models import Document, DocumentChunk
+from app.schemas.document import DocumentCreate, DocumentUpdate, DocumentChunkCreate, DocumentChunkUpdate
 
 from .base import CRUDBase
 
@@ -34,11 +34,11 @@ class CRUDDocument(CRUDBase[Document, DocumentCreate, DocumentUpdate]):
         return list(result.scalars().all())
 
     async def get_multi_by_type(
-        self, db: AsyncSession, *, file_type: str, skip: int = 0, limit: int = 100
+        self, db: AsyncSession, *, doc_type: str, skip: int = 0, limit: int = 100
     ) -> List[Document]:
         result = await db.execute(
             select(self.model)
-            .filter(self.model.file_type.like(f"{file_type}%"))
+            .filter(self.model.doc_type.like(f"{doc_type}%"))
             .offset(skip)
             .limit(limit)
         )
@@ -63,5 +63,22 @@ class CRUDDocument(CRUDBase[Document, DocumentCreate, DocumentUpdate]):
         return list(result.scalars().all())
 
 
-# Create singleton instance
+class CRUDDocumentChunk(CRUDBase[DocumentChunk, DocumentChunkCreate, DocumentChunkUpdate]):
+    def __init__(self) -> None:
+        super().__init__(DocumentChunk)
+
+    async def get_multi_by_document_id(
+        self, db: AsyncSession, *, document_id: UUID, skip: int = 0, limit: int = 100
+    ) -> List[DocumentChunk]:
+        result = await db.execute(
+            select(self.model)
+            .filter(self.model.document_id == document_id)
+            .offset(skip)
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+
+# Create singleton instances
 document = CRUDDocument()
+document_chunk = CRUDDocumentChunk()

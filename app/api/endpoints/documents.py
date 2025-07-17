@@ -11,11 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud import crud_document
 from app.db.session import get_db
-from app.schemas.document import Document as DocumentSchema
-from app.schemas.document import DocumentCreate
+from app.schemas.document import Document as DocumentSchema, DocumentCreate, DocumentProcessingStatus
+from app.core.celery_utils import celery_app
+from app.tasks.document_tasks import process_document
 
 # Default user ID for MVP
-DEFAULT_USER_ID = UUID("00000000-0000-0000-0000-000000000000")  # Changed to UUID object
+DEFAULT_USER_ID = UUID("00000000-0000-0000-0000-000000000000")
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -40,8 +41,8 @@ except Exception as e:
 
 async def _save_uploaded_file(
     file: UploadFile, upload_path: Path
-) -> Tuple[bytes, Path]:
-    """Save the uploaded file to disk and return its contents and path."""
+) -> Path:
+    """Save the uploaded file to disk and return its path."""
     file_extension = os.path.splitext(file.filename or "")[1]
     filename = f"{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}{file_extension}"
     file_path = upload_path / filename
@@ -49,14 +50,12 @@ async def _save_uploaded_file(
     logger.info(f"Starting file upload: {file.filename} (saving as {filename})")
 
     try:
-        contents = await file.read()
-        logger.info(f"Read {len(contents)} bytes from uploaded file")
-
         with open(file_path, "wb") as buffer:
-            buffer.write(contents)
+            while contents := await file.read(1024 * 1024):
+                buffer.write(contents)
         logger.info(f"File saved to {file_path}")
 
-        return contents, file_path
+        return file_path
     except Exception as e:
         if isinstance(e, HTTPException):
             raise
@@ -73,32 +72,29 @@ async def _save_uploaded_file(
         )
 
 
-async def _save_document_to_db(
-    db: AsyncSession, user_id: UUID, file: UploadFile, file_path: Path, file_size: int
+async def _save_document_metadata_to_db(
+    db: AsyncSession, user_id: UUID, file_name: str
 ) -> DocumentSchema:
     """Save document metadata to the database and return the created document."""
     document_data = DocumentCreate(
         user_id=user_id,
-        file_name=file.filename or "unknown",
-        file_path=str(file_path),
-        file_size=file_size,
-        file_type=file.content_type or "application/octet-stream",
-        status="processing",
-        error_message=None,
-        document_metadata=None,
+        file_name=file_name,
+        processing_status=DocumentProcessingStatus.PENDING,
+        summary=None,
+        doc_type=None,
     )
 
     logger.debug(f"Document metadata: {document_data.model_dump_json()}")
-    logger.info("Saving document to database...")
+    logger.info("Saving document metadata to database...")
 
     try:
         db_document = await crud_document.document.create(db, obj_in=document_data)
         await db.flush()
         await db.refresh(db_document)
-        logger.info(f"Document saved to database with ID: {db_document.id}")
+        logger.info(f"Document metadata saved to database with ID: {db_document.id}")
         return DocumentSchema.model_validate(db_document)
     except Exception as e:
-        error_msg = f"Database error while saving document: {str(e)}"
+        error_msg = f"Database error while saving document metadata: {str(e)}"
         logger.error(error_msg, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg
@@ -118,13 +114,13 @@ def _cleanup_file(file_path: Path) -> None:
 @router.post("/upload", status_code=status.HTTP_200_OK)
 async def upload_document(
     file: UploadFile = File(...), db: AsyncSession = Depends(get_db)
-) -> Dict[str, str]:
+) -> Dict[str, Any]:
     """
-    Upload a document to the knowledge base (Development only - no auth).
+    Upload a document to the knowledge base. The file is saved and processed asynchronously.
 
     - **file**: The file to upload (required)
     """
-    user_id = DEFAULT_USER_ID  # In production, verify the user exists
+    user_id = DEFAULT_USER_ID
     logger.info(f"Starting document upload for user {user_id}")
 
     if not file.filename:
@@ -133,7 +129,6 @@ async def upload_document(
             status_code=status.HTTP_400_BAD_REQUEST, detail="No file provided"
         )
 
-    # Ensure upload directory exists
     upload_path = Path(UPLOAD_DIR)
     try:
         upload_path.mkdir(parents=True, exist_ok=True)
@@ -146,49 +141,133 @@ async def upload_document(
         )
 
     file_path: Optional[Path] = None
-    try:
-        # Save the uploaded file and get its contents
-        contents, file_path = await _save_uploaded_file(file, upload_path)
+    db_document: Optional[DocumentSchema] = None
 
-        # Save document metadata to database
-        db_document = await _save_document_to_db(
+    try:
+        file_path = await _save_uploaded_file(file, upload_path)
+
+        db_document = await _save_document_metadata_to_db(
             db=db,
             user_id=user_id,
-            file=file,
-            file_path=file_path,
-            file_size=len(contents),
+            file_name=file.filename,
         )
 
-        # Prepare success response
+        # Celery task 실행 및 task_id 저장
+        task = process_document.delay(str(db_document.id), str(file_path))
+        task_id = task.id
+        logger.info(f"Enqueued document processing task {task_id} for document ID: {db_document.id}")
+
         response_data = {
-            "message": "File uploaded and processed successfully",
-            "filename": file.filename,
-            "document_id": str(db_document.id),
+            "message": "File upload accepted for processing",
+            "document": {
+                "id": str(db_document.id),
+                "filename": db_document.file_name,
+                "processing_status": db_document.processing_status,
+                "uploaded_at": db_document.created_at.isoformat() + "Z",
+                "task_id": task_id,  # 작업 추적을 위한 task ID 추가
+            },
         }
 
-        logger.info(f"Upload completed successfully for document ID: {db_document.id}")
+        logger.info(f"Upload request completed for document ID: {db_document.id}")
         return response_data
 
     except HTTPException:
-        # Re-raise HTTP exceptions
         raise
 
     except Exception as e:
         error_msg = f"Unexpected error during document upload: {str(e)}"
         logger.error(error_msg, exc_info=True)
+        if file_path and file_path.exists():
+            _cleanup_file(file_path)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg
         )
 
     finally:
-        # Clean up if there was an error after file was saved but before DB commit
-        if file_path and "db_document" not in locals() and file_path.exists():
-            _cleanup_file(file_path)
-
-        # Ensure the uploaded file is properly closed
         if not file.file.closed:
             await file.close()
             logger.debug("Uploaded file handle closed")
+
+
+@router.get("/task-status/{task_id}", response_model=Dict[str, Any])
+async def get_task_status(task_id: str) -> Dict[str, Any]:
+    """
+    Get the status of a document processing task with detailed progress information.
+    
+    - **task_id**: The Celery task ID returned from upload endpoint
+    
+    Returns:
+    - task_id: The task ID
+    - state: Current state (PENDING, PROCESSING, SUCCESS, FAILURE)
+    - progress: Progress information (current, total, status message)
+    - result: Task result if completed
+    - error: Error message if failed
+    """
+    try:
+        # Celery AsyncResult를 사용하여 작업 상태 확인
+        from celery.result import AsyncResult
+        
+        result = AsyncResult(task_id, app=celery_app)
+        
+        task_info = {
+            "task_id": task_id,
+            "state": result.state,
+            "ready": result.ready(),
+            "successful": result.successful() if result.ready() else None,
+            "failed": result.failed() if result.ready() else None,
+        }
+        
+        # 진행 중인 경우 상세 정보 추가
+        if result.state == "PROCESSING":
+            meta = result.info or {}
+            task_info["progress"] = {
+                "current": meta.get("current", 0),
+                "total": meta.get("total", 100),
+                "percentage": meta.get("current", 0),
+                "status": meta.get("status", "Processing..."),
+                "chunks_processed": meta.get("chunks_processed", 0),
+                "total_chunks": meta.get("total_chunks", 0),
+            }
+        
+        # 작업이 완료된 경우 결과 추가
+        elif result.ready() and result.successful():
+            task_info["result"] = result.result
+            task_info["progress"] = {
+                "current": 100,
+                "total": 100,
+                "percentage": 100,
+                "status": "Completed",
+            }
+            if isinstance(result.result, dict):
+                task_info["progress"]["chunks_created"] = result.result.get("chunks_created", 0)
+        
+        # 작업이 실패한 경우 에러 정보 추가
+        elif result.failed():
+            task_info["error"] = str(result.info)
+            task_info["progress"] = {
+                "current": 0,
+                "total": 100,
+                "percentage": 0,
+                "status": "Failed",
+            }
+            
+        # PENDING 상태
+        else:
+            task_info["progress"] = {
+                "current": 0,
+                "total": 100,
+                "percentage": 0,
+                "status": "Waiting to start...",
+            }
+            
+        logger.info(f"Task {task_id} status: {result.state}")
+        return task_info
+    except Exception as e:
+        error_msg = f"Error checking task status: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg
+        )
 
 
 @router.get("", response_model=Dict[str, Any])
@@ -206,30 +285,26 @@ async def list_documents(
     try:
         logger.info(f"Fetching documents (skip={skip}, limit={limit})")
 
-        # Handle Optional[int] for skip and limit
         actual_skip = skip if skip is not None else 0
         actual_limit = limit if limit is not None else 100
 
-        # Get documents from the database using the correct CRUD reference
         documents = await crud_document.document.get_multi(
             db=db, skip=actual_skip, limit=actual_limit
         )
 
-        # Format the response according to the API spec
         formatted_documents = [
             {
                 "id": str(doc.id),
                 "filename": doc.file_name,
-                "file_size": doc.file_size,
-                "file_type": doc.file_type,
-                "status": doc.status,
+                "processing_status": doc.processing_status,
+                "summary": doc.summary,
+                "doc_type": doc.doc_type,
                 "uploaded_at": doc.created_at.isoformat()
-                + "Z",  # ISO 8601 format with Z for UTC
+                + "Z",
             }
             for doc in documents
         ]
 
-        # Get total count using SQLAlchemy directly
         from app.models.db_models import Document
 
         count_result = await db.execute(select(func.count()).select_from(Document))
@@ -258,42 +333,59 @@ async def get_document(
     document_id: UUID, db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
     """
-    Get details of a specific document.
+    Get details of a specific document including its chunks.
 
     - **document_id**: ID of the document to retrieve (UUID string)
     """
     try:
         logger.info(f"Fetching document with ID: {document_id}")
 
-        # Get the document from the database using the correct CRUD reference
         document = await crud_document.document.get(db=db, id=document_id)
 
-        # Check if document exists
         if not document:
             error_msg = f"Document not found with ID: {document_id}"
             logger.warning(error_msg)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error_msg)
 
-        # Format the response according to the API spec
+        # Chunk 정보 조회
+        from sqlalchemy import select
+        from app.models.db_models import DocumentChunk
+        
+        chunks_result = await db.execute(
+            select(DocumentChunk)
+            .where(DocumentChunk.document_id == document_id)
+            .order_by(DocumentChunk.created_at)
+        )
+        chunks = chunks_result.scalars().all()
+        
+        # Chunk 정보 포맷팅
+        chunk_info = [
+            {
+                "id": str(chunk.id),
+                "content_preview": chunk.content[:200] + "..." if len(chunk.content) > 200 else chunk.content,
+                "num_tokens": chunk.num_tokens,
+                "embedding_status": chunk.embedding_status,
+                "created_at": chunk.created_at.isoformat() + "Z",
+            }
+            for chunk in chunks
+        ]
+
         response_data = {
             "id": str(document.id),
             "filename": document.file_name,
-            "file_path": document.file_path,
-            "file_size": document.file_size,
-            "file_type": document.file_type,
-            "status": document.status,
+            "processing_status": document.processing_status,
+            "summary": document.summary,
+            "doc_type": document.doc_type,
             "uploaded_at": document.created_at.isoformat() + "Z",
-            # Convert metadata to dict if it's not already
-            "metadata": (
-                dict(document.document_metadata) if document.document_metadata else {}
-            ),
+            "chunk_count": len(chunks),
+            "chunks": chunk_info,
+            "error_message": document.error_message,
         }
 
-        logger.info(f"Successfully retrieved document: {document_id}")
+        logger.info(f"Successfully retrieved document: {document_id} with {len(chunks)} chunks")
         return response_data
 
     except HTTPException:
-        # Re-raise HTTP exceptions
         raise
 
     except Exception as e:
@@ -317,35 +409,19 @@ async def delete_document(
     try:
         logger.info(f"Deleting document with ID: {document_id}")
 
-        # Get the document from the database first
         db_document = await crud_document.document.get(db=db, id=document_id)
 
-        # Check if document exists
         if not db_document:
             error_msg = f"Document not found with ID: {document_id}"
             logger.warning(error_msg)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error_msg)
 
-        file_path = Path(db_document.file_path)
-
-        # Delete the file from storage if it exists
-        if file_path and file_path.exists():
-            try:
-                os.remove(file_path)
-                logger.info(f"Successfully deleted file: {file_path}")
-            except Exception as e:
-                # Log the error but continue with DB deletion
-                error_msg = f"Warning: Could not delete file {file_path}: {str(e)}"
-                logger.warning(error_msg, exc_info=True)
-
-        # Delete the document from the database
         await crud_document.document.remove(db=db, id=document_id)
 
         logger.info(f"Successfully deleted document with ID: {document_id}")
         return None
 
     except HTTPException:
-        # Re-raise HTTP exceptions
         raise
 
     except Exception as e:
