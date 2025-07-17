@@ -13,7 +13,7 @@ from app.crud import crud_document
 from app.db.session import get_db
 from app.schemas.document import Document as DocumentSchema
 from app.schemas.document import DocumentCreate, DocumentProcessingStatus
-from app.main import celery_app
+from app.core.celery_utils import celery_app
 from app.tasks.document_tasks import process_document
 
 # Default user ID for MVP
@@ -209,9 +209,9 @@ async def list_documents(
             {
                 "id": str(doc.id),
                 "filename": doc.file_name,
-                "processing_status": doc.processing_status.value,
+                "processing_status": doc.processing_status,
                 "summary": doc.summary,
-                "doc_type": doc.doc_type.value if doc.doc_type else None,
+                "doc_type": doc.doc_type,
                 "uploaded_at": doc.created_at.isoformat()
                 + "Z",
             }
@@ -263,9 +263,9 @@ async def get_document(
         response_data = {
             "id": str(document.id),
             "filename": document.file_name,
-            "processing_status": document.processing_status.value,
+            "processing_status": document.processing_status,
             "summary": document.summary,
-            "doc_type": document.doc_type.value if document.doc_type else None,
+            "doc_type": document.doc_type,
             "uploaded_at": document.created_at.isoformat() + "Z",
         }
 

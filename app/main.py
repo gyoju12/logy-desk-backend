@@ -16,7 +16,7 @@ from app.api.router import api_router
 from app.crud import crud_agent
 from app.db.session import get_db
 from app.core.logging_config import setup_logging
-from celery import Celery
+from app.core.celery_utils import celery_app as app_celery_app
 
 # 로깅 설정 초기화
 setup_logging(level="DEBUG")
@@ -26,23 +26,12 @@ logger = logging.getLogger(__name__)
 API_PREFIX = "/api/v1"
 
 
-def create_celery_app() -> Celery:
-    celery_app = Celery(
-        "logy_desk_backend",
-        broker=settings.CELERY_BROKER_URL,
-        backend=settings.CELERY_RESULT_BACKEND,
-        include=["app.tasks.document_tasks"],  # Celery 태스크 파일 경로
-    )
-    celery_app.conf.update(task_track_started=True)
-    return celery_app
-
-
 # Application lifespan
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup: Initialize resources (DB connections, etc.)
     logger.info("Starting up Logy-Desk API...")
-    app.state.celery_app = create_celery_app()
+    app.state.celery_app = app_celery_app
 
     yield
 

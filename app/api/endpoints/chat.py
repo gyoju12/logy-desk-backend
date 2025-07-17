@@ -13,7 +13,7 @@ from app.services.llm_client import LLMClient
 from app.core.logging_config import get_logger
 
 # Default user ID for MVP
-DEFAULT_USER_ID = UUID("00000000-0000-0000-0000-000000000001")
+DEFAULT_USER_ID = UUID("00000000-0000-0000-0000-000000000000")
 
 router = APIRouter()
 logger = get_logger(__name__)
